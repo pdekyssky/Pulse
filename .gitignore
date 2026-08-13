@@ -1,0 +1,53 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ruff
+.ruff_cache/
+
+# mypy
+.mypy_cache/
+
+# Node
+node_modules/
+
+# Frontend builds
+dist/
+build/
+.vite/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python packaging
+*.egg-info/
+.eggs/
+
+# Cursor
+.cursor/
