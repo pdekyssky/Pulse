@@ -1,28 +1,32 @@
 import mongoose from 'mongoose';
+import { getNextSequence } from './Counter.js';
 
-const incidentSchemma = new mongoose.Schema({
+const INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved'];
+const INCIDENT_SEVERITIES = ['critical', 'high', 'medium', 'low'];
+
+const incidentSchema = new mongoose.Schema({
+    id: {
+        type: Number,
+        unique: true,
+        sparse: true
+    },
     title: {
-        type: String, 
+        type: String,
         required: true
     },
     description: {
         type: String,
-        required: true
+        default: null
     },
     status: {
         type: String,
-        enum: ['open', 'investigating', 'resolved'],
-        default: 'open'
-    },
-    priority: {
-        type: String,
-        enum: ['low', 'medium', 'high', 'critical'],
-        default: 'medium'
+        enum: INCIDENT_STATUSES,
+        default: 'investigating'
     },
     severity: {
         type: String,
-        enum: ['minor', 'major', 'critical'],
-        default: 'minor'
+        enum: INCIDENT_SEVERITIES,
+        default: 'medium'
     },
     service: {
         type: mongoose.Schema.Types.ObjectId,
@@ -36,11 +40,39 @@ const incidentSchemma = new mongoose.Schema({
     },
     assignedTo: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+        ref: 'User',
+        default: null
+    },
+    startedAt: {
+        type: Date
+    },
+    resolvedAt: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 
+incidentSchema.pre('save', async function () {
+    if (this.id == null) {
+        this.id = await getNextSequence('incident');
+    }
 
-const Incident = mongoose.model('Incident', incidentSchemma);
+    if (this.isNew && !this.startedAt) {
+        this.startedAt = new Date();
+    }
+});
 
+incidentSchema.methods.ensureNumericId = async function () {
+    if (typeof this.id === 'number') {
+        return this;
+    }
+
+    this.id = await getNextSequence('incident');
+    await this.updateOne({ id: this.id }, { timestamps: false });
+    return this;
+};
+
+const Incident = mongoose.model('Incident', incidentSchema);
+
+export { INCIDENT_STATUSES, INCIDENT_SEVERITIES };
 export default Incident;

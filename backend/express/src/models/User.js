@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
+import { getNextSequence } from './Counter.js';
 
 const userSchema = new mongoose.Schema({
+    id: {
+        type: Number,
+        unique: true,
+        sparse: true
+    },
     name: {
         type: String,
         required: true
@@ -25,6 +31,22 @@ const userSchema = new mongoose.Schema({
         default: true
     }
 }, { timestamps: true });
+
+userSchema.pre('save', async function () {
+    if (this.id == null) {
+        this.id = await getNextSequence('user');
+    }
+});
+
+userSchema.methods.ensureNumericId = async function () {
+    if (typeof this.id === 'number') {
+        return this;
+    }
+
+    this.id = await getNextSequence('user');
+    await this.save();
+    return this;
+};
 
 userSchema.set('toJSON', {
     transform(_doc, ret) {

@@ -15,9 +15,10 @@ function getCookieOptions() {
     };
 }
 
+//toPublicUser - convert user object to public user object
 function toPublicUser(user) {
     return {
-        id: user._id.toString(),
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -27,6 +28,7 @@ function toPublicUser(user) {
     };
 }
 
+//register
 const register = async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -72,6 +74,7 @@ const register = async (req, res) => {
     }
 }
 
+//login
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -98,6 +101,8 @@ const login = async (req, res) => {
             });
         }
 
+        await user.ensureNumericId();
+
         const token = jwt.sign(
             { userId: user._id },
             process.env.JWT_SECRET,
@@ -118,6 +123,7 @@ const login = async (req, res) => {
     }
 }
 
+//logout
 const logout = async (req, res) => {
     res.clearCookie(COOKIE_NAME, {
         httpOnly: true,
@@ -131,7 +137,9 @@ const logout = async (req, res) => {
     });
 }
 
+//me
 const me = async (req, res) => {
+    await req.user.ensureNumericId();
     res.status(200).json(toPublicUser(req.user));
 }
 

@@ -1,11 +1,9 @@
 import express from 'express';
-import { createUser, getUsers } from '../controllers/userController.js';
+import { getTimeline } from '../controllers/timelineController.js';
 import authMiddleware from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-router.get('/', authMiddleware, getUsers);
-router.post('/', createUser);
+router.get('/', authMiddleware, getTimeline);
 
 export default router;
-
