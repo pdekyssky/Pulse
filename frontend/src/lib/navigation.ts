@@ -8,6 +8,7 @@ import {
   Bell,
   Clock,
   FileText,
+  Inbox,
   LayoutDashboard,
   Server,
   Settings,
@@ -25,6 +26,7 @@ export const navItems: NavItem[] = [
   { label: 'Analytics', path: '/analytics', icon: BarChart3 },
   { label: 'Reports', path: '/reports', icon: FileText },
   { label: 'Team', path: '/team', icon: Users },
+  { label: 'Notifications', path: '/notifications', icon: Inbox },
   { label: 'Settings', path: '/settings', icon: Settings },
 ]
 

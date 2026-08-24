@@ -11,12 +11,19 @@ import UserRoleBadge, { UserStatusBadge } from './UserBadges.tsx'
 
 interface TeamRowProps {
   member: User
+  readOnly?: boolean
   onView: (member: User) => void
-  onEdit: (member: User) => void
-  onDeactivate: (member: User) => void
+  onEdit?: (member: User) => void
+  onDeactivate?: (member: User) => void
 }
 
-export default function TeamRow({ member, onView, onEdit, onDeactivate }: TeamRowProps) {
+export default function TeamRow({
+  member,
+  readOnly = false,
+  onView,
+  onEdit,
+  onDeactivate,
+}: TeamRowProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -76,52 +83,80 @@ export default function TeamRow({ member, onView, onEdit, onDeactivate }: TeamRo
           >
             <Eye className="size-4" aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            aria-label={`Edit ${member.name}`}
-            onClick={() => onEdit(member)}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-          >
-            <Pencil className="size-4" aria-hidden="true" />
-          </button>
-          <div className="relative" ref={menuRef}>
+          {!readOnly && onEdit && (
             <button
               type="button"
-              aria-label={`More actions for ${member.name}`}
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((open) => !open)}
+              aria-label={`Edit ${member.name}`}
+              onClick={() => onEdit(member)}
               className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
             >
-              <MoreHorizontal className="size-4" aria-hidden="true" />
+              <Pencil className="size-4" aria-hidden="true" />
             </button>
-            {menuOpen && (
-              <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                <MenuButton icon={Copy} label="Copy email" onClick={copyEmail} />
-                <MenuButton
-                  icon={Mail}
-                  label="Resend invite"
-                  onClick={() => setMenuOpen(false)}
-                  disabled={member.status !== 'invited'}
-                />
-                <MenuButton
-                  icon={UserMinus}
-                  label="Deactivate"
-                  onClick={() => {
-                    onDeactivate(member)
-                    setMenuOpen(false)
-                  }}
-                  disabled={member.status === 'inactive'}
-                />
-              </div>
-            )}
-          </div>
+          )}
+          {!readOnly && onDeactivate && (
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                aria-label={`More actions for ${member.name}`}
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((open) => !open)}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                <MoreHorizontal className="size-4" aria-hidden="true" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                  <MenuButton icon={Copy} label="Copy email" onClick={copyEmail} />
+                  <MenuButton
+                    icon={Mail}
+                    label="Resend invite"
+                    onClick={() => setMenuOpen(false)}
+                    disabled={member.status !== 'invited'}
+                  />
+                  <MenuButton
+                    icon={UserMinus}
+                    label="Deactivate"
+                    onClick={() => {
+                      onDeactivate(member)
+                      setMenuOpen(false)
+                    }}
+                    disabled={member.status === 'inactive'}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          {readOnly && (
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                aria-label={`More actions for ${member.name}`}
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((open) => !open)}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                <MoreHorizontal className="size-4" aria-hidden="true" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                  <MenuButton icon={Copy} label="Copy email" onClick={copyEmail} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </td>
     </tr>
   )
 }
 
-export function TeamMobileCard({ member, onView, onEdit, onDeactivate }: TeamRowProps) {
+export function TeamMobileCard({
+  member,
+  readOnly = false,
+  onView,
+  onEdit,
+  onDeactivate,
+}: TeamRowProps) {
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -149,15 +184,17 @@ export function TeamMobileCard({ member, onView, onEdit, onDeactivate }: TeamRow
           <Eye className="size-3.5" aria-hidden="true" />
           View
         </button>
-        <button
-          type="button"
-          onClick={() => onEdit(member)}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
-        >
-          <Pencil className="size-3.5" aria-hidden="true" />
-          Edit
-        </button>
-        {member.status !== 'inactive' && (
+        {!readOnly && onEdit && (
+          <button
+            type="button"
+            onClick={() => onEdit(member)}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <Pencil className="size-3.5" aria-hidden="true" />
+            Edit
+          </button>
+        )}
+        {!readOnly && onDeactivate && member.status !== 'inactive' && (
           <button
             type="button"
             onClick={() => onDeactivate(member)}

@@ -4,12 +4,13 @@
 
 import { ChevronDown, RotateCcw } from 'lucide-react'
 
-import { mockServices } from '../../data/services.ts'
 import type { AnalyticsFilters, AnalyticsMetric } from '../../types/analytics.ts'
+import type { Service } from '../../types/service.ts'
 import { defaultAnalyticsFilters } from '../../lib/analytics-stats.ts'
 
 interface AnalyticsFiltersBarProps {
   filters: AnalyticsFilters
+  services: Service[]
   onChange: (filters: AnalyticsFilters) => void
 }
 
@@ -20,7 +21,11 @@ const metricOptions: Array<{ value: AnalyticsMetric; label: string }> = [
   { value: 'responseTime', label: 'Response Time' },
 ]
 
-export default function AnalyticsFiltersBar({ filters, onChange }: AnalyticsFiltersBarProps) {
+export default function AnalyticsFiltersBar({
+  filters,
+  services,
+  onChange,
+}: AnalyticsFiltersBarProps) {
   const hasActiveFilters = filters.serviceId !== 'all' || filters.metric !== 'all'
 
   return (
@@ -29,7 +34,7 @@ export default function AnalyticsFiltersBar({ filters, onChange }: AnalyticsFilt
         value={filters.serviceId}
         options={[
           { value: 'all', label: 'All Services' },
-          ...mockServices.map((service) => ({ value: service.id, label: service.name })),
+          ...services.map((service) => ({ value: service.id, label: service.name })),
         ]}
         onChange={(serviceId) => onChange({ ...filters, serviceId })}
       />

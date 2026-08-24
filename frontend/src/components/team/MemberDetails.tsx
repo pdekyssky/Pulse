@@ -11,11 +11,17 @@ import UserRoleBadge, { UserStatusBadge } from './UserBadges.tsx'
 
 interface MemberDetailsProps {
   member: User | null
+  readOnly?: boolean
   onClose: () => void
-  onEdit: (member: User) => void
+  onEdit?: (member: User) => void
 }
 
-export default function MemberDetails({ member, onClose, onEdit }: MemberDetailsProps) {
+export default function MemberDetails({
+  member,
+  readOnly = false,
+  onClose,
+  onEdit,
+}: MemberDetailsProps) {
   if (!member) {
     return null
   }
@@ -63,18 +69,20 @@ export default function MemberDetails({ member, onClose, onEdit }: MemberDetails
           </div>
         </div>
 
-        <div className="border-t border-gray-100 px-5 py-4">
-          <button
-            type="button"
-            onClick={() => {
-              onEdit(member)
-              onClose()
-            }}
-            className="inline-flex w-full items-center justify-center rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pulse-700"
-          >
-            Edit Member
-          </button>
-        </div>
+        {!readOnly && onEdit && (
+          <div className="border-t border-gray-100 px-5 py-4">
+            <button
+              type="button"
+              onClick={() => {
+                onEdit(member)
+                onClose()
+              }}
+              className="inline-flex w-full items-center justify-center rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pulse-700"
+            >
+              Edit Member
+            </button>
+          </div>
+        )}
       </aside>
     </>
   )

@@ -11,14 +11,16 @@ import TeamRow, { TeamMobileCard } from './TeamRow.tsx'
 interface TeamTableProps {
   members: User[]
   totalCount: number
+  readOnly?: boolean
   onView: (member: User) => void
-  onEdit: (member: User) => void
-  onDeactivate: (member: User) => void
+  onEdit?: (member: User) => void
+  onDeactivate?: (member: User) => void
 }
 
 export default function TeamTable({
   members,
   totalCount,
+  readOnly = false,
   onView,
   onEdit,
   onDeactivate,
@@ -56,6 +58,7 @@ export default function TeamTable({
                   <TeamRow
                     key={member.id}
                     member={member}
+                    readOnly={readOnly}
                     onView={onView}
                     onEdit={onEdit}
                     onDeactivate={onDeactivate}
@@ -70,6 +73,7 @@ export default function TeamTable({
               <TeamMobileCard
                 key={member.id}
                 member={member}
+                readOnly={readOnly}
                 onView={onView}
                 onEdit={onEdit}
                 onDeactivate={onDeactivate}

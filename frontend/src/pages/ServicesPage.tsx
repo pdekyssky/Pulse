@@ -1,42 +1,91 @@
 /**
- * Service registry with local mock CRUD, filters, and detail views.
+ * Service registry with API-backed list, filters, detail views, and admin CRUD.
  */
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
-import { mockServices } from '../data/services.ts'
-import { mockUsers } from '../data/users.ts'
+import DeleteServiceDialog from '../components/services/DeleteServiceDialog.tsx'
+import QueryState from '../components/common/QueryState.tsx'
 import ServiceDetails from '../components/services/ServiceDetails.tsx'
 import ServiceFilters from '../components/services/ServiceFilters.tsx'
 import ServiceFormDialog from '../components/services/ServiceForm.tsx'
 import ServicesHeader from '../components/services/ServicesHeader.tsx'
 import ServiceStats from '../components/services/ServiceStats.tsx'
 import ServiceTable from '../components/services/ServiceTable.tsx'
+import IncidentPagination from '../components/incidents/IncidentPagination.tsx'
+import Toast from '../components/ui/Toast.tsx'
+import { useAuth } from '../hooks/useAuth.ts'
+import { useTeamUsers } from '../hooks/useDashboardOverview.ts'
 import {
-  createServiceFromInput,
-  serviceToFormInput,
-  updateServiceFromInput,
-} from '../lib/service-utils.ts'
+  useCreateService,
+  useDeleteService,
+  useServices,
+  useUpdateService,
+} from '../hooks/useServices.ts'
+import { ApiError } from '../lib/api/client.ts'
+import {
+  DEFAULT_PAGE_SIZE,
+  getTotalPages,
+  paginateItems,
+} from '../lib/pagination.ts'
+import {
+  mapServiceFormToCreateBody,
+  mapServiceFormToUpdateBody,
+  serviceToUpdateFormInput,
+  toServiceCreateFormInput,
+  toServiceUpdateFormInput,
+} from '../lib/mappers/service.ts'
+import { serviceToFormInput } from '../lib/service-utils.ts'
 import {
   defaultServiceFilters,
   filterServices,
   type ServiceFilters as ServiceFiltersState,
 } from '../lib/service-stats.ts'
-import type { Service, ServiceFormInput } from '../types/service.ts'
+import type { ServiceFormInput } from '../types/service.ts'
+import type { Service } from '../types/service.ts'
 
-type FormMode = 'create' | 'edit' | null
+type ServiceFormState =
+  | { mode: 'create' }
+  | { mode: 'edit'; service: Service }
+
+function parseServiceId(id: string): number {
+  const serviceId = Number.parseInt(id, 10)
+  if (Number.isNaN(serviceId)) {
+    throw new Error('Invalid service ID')
+  }
+  return serviceId
+}
 
 export default function ServicesPage() {
-  // Clone mock data so edits stay local to this page session
-  const [services, setServices] = useState<Service[]>(() => [...mockServices])
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+
+  const { data: services = [], isLoading, error } = useServices()
+  const { data: users = [] } = useTeamUsers()
+  const createServiceMutation = useCreateService()
+  const updateServiceMutation = useUpdateService()
+  const deleteServiceMutation = useDeleteService()
+
   const [filters, setFilters] = useState<ServiceFiltersState>(defaultServiceFilters)
-  const [formMode, setFormMode] = useState<FormMode>(null)
-  const [editingService, setEditingService] = useState<Service | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(DEFAULT_PAGE_SIZE)
   const [viewingServiceId, setViewingServiceId] = useState<string | null>(null)
+  const [formState, setFormState] = useState<ServiceFormState | null>(null)
+  const [deletingService, setDeletingService] = useState<Service | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const filteredServices = useMemo(
     () => filterServices(services, filters),
     [services, filters],
+  )
+
+  const totalPages = getTotalPages(filteredServices.length, pageSize)
+  const currentPage = totalPages > 0 ? Math.min(page, totalPages) : 1
+  const paginatedServices = useMemo(
+    () => paginateItems(filteredServices, currentPage, pageSize),
+    [filteredServices, currentPage, pageSize],
   )
 
   const viewingService = useMemo(
@@ -44,72 +93,174 @@ export default function ServicesPage() {
     [services, viewingServiceId],
   )
 
-  const viewingOwner = mockUsers.find((user) => user.id === viewingService?.ownerId)
+  const viewingOwner = users.find((user) => user.id === viewingService?.ownerId)
 
-  const handleCreateClick = () => {
-    setEditingService(null)
-    setFormMode('create')
-  }
+  const isFormPending =
+    formState?.mode === 'create'
+      ? createServiceMutation.isPending
+      : updateServiceMutation.isPending
 
   const handleView = (service: Service) => {
     setViewingServiceId(service.id)
   }
 
-  const handleEdit = (service: Service) => {
-    setEditingService(service)
-    setFormMode('edit')
+  const handleFiltersChange = (nextFilters: ServiceFiltersState) => {
+    setFilters(nextFilters)
+    setPage(1)
   }
 
-  const handleFormClose = () => {
-    setFormMode(null)
-    setEditingService(null)
-  }
+  const openCreateForm = useCallback(() => {
+    setSubmitError(null)
+    setFormState({ mode: 'create' })
+  }, [])
 
-  const handleFormSubmit = (input: ServiceFormInput) => {
-    if (formMode === 'create') {
-      setServices((current) => [...current, createServiceFromInput(input, current)])
+  const openEditForm = useCallback((service: Service) => {
+    setSubmitError(null)
+    setFormState({ mode: 'edit', service })
+  }, [])
+
+  const openDeleteDialog = useCallback((service: Service) => {
+    setDeleteError(null)
+    setDeletingService(service)
+  }, [])
+
+  const closeDeleteDialog = useCallback(() => {
+    setDeletingService(null)
+    setDeleteError(null)
+    deleteServiceMutation.reset()
+  }, [deleteServiceMutation])
+
+  const closeForm = useCallback(() => {
+    setFormState(null)
+    setSubmitError(null)
+    createServiceMutation.reset()
+    updateServiceMutation.reset()
+  }, [createServiceMutation, updateServiceMutation])
+
+  const dismissToast = useCallback(() => {
+    setToastMessage(null)
+  }, [])
+
+  const handleFormSubmit = useCallback(
+    async (input: ServiceFormInput) => {
+      setSubmitError(null)
+
+      try {
+        if (formState?.mode === 'create') {
+          const body = mapServiceFormToCreateBody(toServiceCreateFormInput(input))
+          await createServiceMutation.mutateAsync(body)
+          setToastMessage('Service created successfully.')
+        } else if (formState?.mode === 'edit') {
+          const original = serviceToUpdateFormInput(formState.service)
+          const updateInput = toServiceUpdateFormInput(input)
+          const body = mapServiceFormToUpdateBody(updateInput, original)
+
+          await updateServiceMutation.mutateAsync({
+            id: parseServiceId(formState.service.id),
+            data: body,
+          })
+          setToastMessage('Service updated successfully.')
+        } else {
+          return
+        }
+
+        closeForm()
+      } catch (mutationError) {
+        const message =
+          mutationError instanceof ApiError
+            ? mutationError.message
+            : mutationError instanceof Error
+              ? mutationError.message
+              : 'Request failed'
+
+        setSubmitError(message)
+      }
+    },
+    [closeForm, createServiceMutation, formState, updateServiceMutation],
+  )
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deletingService) {
       return
     }
 
-    if (formMode === 'edit' && editingService) {
-      setServices((current) =>
-        current.map((service) =>
-          service.id === editingService.id
-            ? updateServiceFromInput(service, input)
-            : service,
-        ),
-      )
+    setDeleteError(null)
+
+    try {
+      await deleteServiceMutation.mutateAsync(parseServiceId(deletingService.id))
+
+      if (viewingServiceId === deletingService.id) {
+        setViewingServiceId(null)
+      }
+
+      closeDeleteDialog()
+      setToastMessage('Service deleted successfully.')
+    } catch (mutationError) {
+      const message =
+        mutationError instanceof ApiError
+          ? mutationError.message
+          : mutationError instanceof Error
+            ? mutationError.message
+            : 'Request failed'
+
+      setDeleteError(message)
     }
-  }
+  }, [closeDeleteDialog, deleteServiceMutation, deletingService, viewingServiceId])
+
+  const formInitialValues =
+    formState?.mode === 'edit' ? serviceToFormInput(formState.service) : undefined
 
   return (
-    <div className="space-y-6">
-      <ServicesHeader onCreateClick={handleCreateClick} />
-      <ServiceStats services={services} />
-      <ServiceFilters filters={filters} onChange={setFilters} />
-      <ServiceTable
-        services={filteredServices}
-        totalCount={services.length}
-        onView={handleView}
-        onEdit={handleEdit}
-      />
+    <QueryState isLoading={isLoading} error={error} loadingMessage="Loading services...">
+      <div className="space-y-6">
+        <ServicesHeader onCreateClick={isAdmin ? openCreateForm : undefined} />
+        <ServiceStats services={services} />
+        <ServiceFilters filters={filters} onChange={handleFiltersChange} />
+        <ServiceTable
+          services={paginatedServices}
+          totalCount={services.length}
+          onView={handleView}
+          onEdit={isAdmin ? openEditForm : undefined}
+          onDelete={isAdmin ? openDeleteDialog : undefined}
+        />
+        <IncidentPagination
+          page={currentPage}
+          totalPages={totalPages}
+          onPrevious={() => setPage((current) => Math.max(1, current - 1))}
+          onNext={() => setPage((current) => Math.min(totalPages, current + 1))}
+        />
 
-      <ServiceDetails
-        service={viewingService}
-        owner={viewingOwner}
-        onClose={() => setViewingServiceId(null)}
-      />
+        <ServiceDetails
+          service={viewingService}
+          owner={viewingOwner}
+          onClose={() => setViewingServiceId(null)}
+        />
 
-      <ServiceFormDialog
-        // Remount form when switching between create and edit modes
-        key={formMode === 'edit' && editingService ? editingService.id : 'create'}
-        open={formMode !== null}
-        mode={formMode === 'edit' ? 'edit' : 'create'}
-        users={mockUsers}
-        initialValues={editingService ? serviceToFormInput(editingService) : undefined}
-        onClose={handleFormClose}
-        onSubmit={handleFormSubmit}
-      />
-    </div>
+        {isAdmin && formState && (
+          <ServiceFormDialog
+            open
+            mode={formState.mode}
+            users={users}
+            initialValues={formInitialValues}
+            onClose={closeForm}
+            onSubmit={handleFormSubmit}
+            isPending={isFormPending}
+            submitError={submitError}
+          />
+        )}
+
+        {isAdmin && (
+          <DeleteServiceDialog
+            service={deletingService}
+            onClose={closeDeleteDialog}
+            onConfirm={handleDeleteConfirm}
+            isPending={deleteServiceMutation.isPending}
+            error={deleteError}
+          />
+        )}
+
+        <Toast message={toastMessage} onClose={dismissToast} />
+      </div>
+    </QueryState>
   )
 }

@@ -2,10 +2,11 @@
  * Single alert row with severity and status badges.
  */
 
-import { Bell, CheckCircle2, Eye, MoreHorizontal } from 'lucide-react'
+import { Bell, CheckCircle2 } from 'lucide-react'
 
 import type { Alert } from '../../types/alert.ts'
 import type { Service } from '../../types/service.ts'
+import { canAcknowledgeAlert, canResolveAlert } from '../../lib/mappers/alert.ts'
 import ServiceIcon from '../services/ServiceIcon.tsx'
 import AlertSeverityBadge from './AlertSeverityBadge.tsx'
 import AlertStatusBadge from './AlertStatusBadge.tsx'
@@ -14,9 +15,23 @@ import { formatDateTime, formatRelativeTime } from '../../lib/format.ts'
 interface AlertRowProps {
   alert: Alert
   service?: Service
+  onAcknowledge?: (alert: Alert) => void
+  onResolve?: (alert: Alert) => void
+  mutatingAlertId?: string | null
 }
 
-export default function AlertRow({ alert, service }: AlertRowProps) {
+export default function AlertRow({
+  alert,
+  service,
+  onAcknowledge,
+  onResolve,
+  mutatingAlertId = null,
+}: AlertRowProps) {
+  const isMutating = mutatingAlertId === alert.id
+  const showActionColumn = onAcknowledge !== undefined || onResolve !== undefined
+  const showAcknowledge = onAcknowledge && canAcknowledgeAlert(alert)
+  const showResolve = onResolve && canResolveAlert(alert)
+
   return (
     <tr className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50">
       <td className="px-5 py-4 pr-4">
@@ -56,39 +71,49 @@ export default function AlertRow({ alert, service }: AlertRowProps) {
           {formatRelativeTime(alert.createdAt)}
         </span>
       </td>
-      <td className="px-5 py-4 text-right">
-        <div className="flex items-center justify-end gap-0.5">
-          <button
-            type="button"
-            aria-label={`View ${alert.title}`}
-            className="rounded-lg p-1.5 text-gray-400"
-            tabIndex={-1}
-          >
-            <Eye className="size-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label={`Acknowledge ${alert.title}`}
-            className="rounded-lg p-1.5 text-gray-400"
-            tabIndex={-1}
-          >
-            <CheckCircle2 className="size-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label={`More actions for ${alert.title}`}
-            className="rounded-lg p-1.5 text-gray-400"
-            tabIndex={-1}
-          >
-            <MoreHorizontal className="size-4" aria-hidden="true" />
-          </button>
-        </div>
-      </td>
+      {showActionColumn && (
+        <td className="px-5 py-4 text-right">
+          <div className="flex items-center justify-end gap-0.5">
+            {showAcknowledge && (
+              <button
+                type="button"
+                aria-label={`Acknowledge ${alert.title}`}
+                onClick={() => onAcknowledge(alert)}
+                disabled={isMutating}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+              >
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+              </button>
+            )}
+            {showResolve && (
+              <button
+                type="button"
+                aria-label={`Resolve ${alert.title}`}
+                onClick={() => onResolve(alert)}
+                disabled={isMutating}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 disabled:opacity-50"
+              >
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </td>
+      )}
     </tr>
   )
 }
 
-export function AlertMobileCard({ alert, service }: AlertRowProps) {
+export function AlertMobileCard({
+  alert,
+  service,
+  onAcknowledge,
+  onResolve,
+  mutatingAlertId = null,
+}: AlertRowProps) {
+  const isMutating = mutatingAlertId === alert.id
+  const showAcknowledge = onAcknowledge && canAcknowledgeAlert(alert)
+  const showResolve = onResolve && canResolveAlert(alert)
+
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -102,6 +127,30 @@ export function AlertMobileCard({ alert, service }: AlertRowProps) {
         <span>{formatRelativeTime(alert.createdAt)}</span>
         <span>{formatDateTime(alert.createdAt)}</span>
       </div>
+      {(showAcknowledge || showResolve) && (
+        <div className="mt-3 flex gap-2">
+          {showAcknowledge && (
+            <button
+              type="button"
+              onClick={() => onAcknowledge(alert)}
+              disabled={isMutating}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            >
+              Acknowledge
+            </button>
+          )}
+          {showResolve && (
+            <button
+              type="button"
+              onClick={() => onResolve(alert)}
+              disabled={isMutating}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-green-200 bg-white px-3 py-1.5 text-xs font-medium text-green-700 transition-colors hover:bg-green-50 disabled:opacity-50"
+            >
+              Resolve
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

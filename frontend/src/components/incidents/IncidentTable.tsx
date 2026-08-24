@@ -13,7 +13,7 @@ interface IncidentTableProps {
   services: Service[]
   users: User[]
   onSelectIncident: (incident: Incident) => void
-  onResolveIncident: (incident: Incident) => void
+  onResolveIncident?: (incident: Incident) => void
 }
 
 export default function IncidentTable({

@@ -4,7 +4,11 @@
 
 import { Plus } from 'lucide-react'
 
-export default function AlertsHeader() {
+interface AlertsHeaderProps {
+  onCreateClick?: () => void
+}
+
+export default function AlertsHeader({ onCreateClick }: AlertsHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -14,13 +18,16 @@ export default function AlertsHeader() {
         </p>
       </div>
 
-      <button
-        type="button"
-        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pulse-700"
-      >
-        <Plus className="size-4" aria-hidden="true" />
-        Create Alert Rule
-      </button>
+      {onCreateClick && (
+        <button
+          type="button"
+          onClick={onCreateClick}
+          className="cursor-pointer inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pulse-700"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          Create Alert
+        </button>
+      )}
     </div>
   )
 }

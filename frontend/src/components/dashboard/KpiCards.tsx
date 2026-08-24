@@ -10,15 +10,14 @@ import {
   TrendingUp,
 } from 'lucide-react'
 
-import { mockServices } from '../../data/services.ts'
-import { useIncidents } from '../../hooks/useIncidents.ts'
-import { computeOverviewStats } from '../../lib/overview-stats.ts'
+import type { DashboardOverviewStats } from '../../types/api/dashboard.ts'
 import StatCard from './StatCard.tsx'
 
-export default function KpiCards() {
-  const { incidents } = useIncidents()
-  const stats = computeOverviewStats(mockServices, incidents)
+interface KpiCardsProps {
+  stats: DashboardOverviewStats
+}
 
+export default function KpiCards({ stats }: KpiCardsProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <StatCard label="Total Services" value={stats.totalServices} icon={Layers} variant="default" />

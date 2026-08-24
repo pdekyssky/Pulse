@@ -1,118 +1,89 @@
 /**
- * Team member management with mock CRUD, filters, and member details.
+ * Team member directory with API-backed read-only list and filters.
  */
 
 import { useMemo, useState } from 'react'
 
-import { mockUsers } from '../data/users.ts'
+import QueryState from '../components/common/QueryState.tsx'
 import MemberDetails from '../components/team/MemberDetails.tsx'
-import MemberFormDialog from '../components/team/MemberForm.tsx'
 import TeamFilters from '../components/team/TeamFilters.tsx'
 import TeamHeader from '../components/team/TeamHeader.tsx'
 import TeamStats from '../components/team/TeamStats.tsx'
 import TeamTable from '../components/team/TeamTable.tsx'
+import IncidentPagination from '../components/incidents/IncidentPagination.tsx'
+import { useTeamUsers } from '../hooks/useTeamQuery.ts'
 import {
-  createUserFromInput,
-  updateUserFromInput,
-  userToFormInput,
-} from '../lib/team-utils.ts'
+  getTotalPages,
+  paginateItems,
+} from '../lib/pagination.ts'
 import {
   defaultTeamFilters,
   filterTeamMembers,
   sortTeamMembers,
   type TeamFilters as TeamFiltersState,
 } from '../lib/team-stats.ts'
-import type { User, UserFormInput } from '../types/user.ts'
-
-type FormMode = 'create' | 'edit' | null
 
 export default function TeamPage() {
-  const [members, setMembers] = useState<User[]>(() => [...mockUsers])
   const [filters, setFilters] = useState<TeamFiltersState>(defaultTeamFilters)
-  const [formMode, setFormMode] = useState<FormMode>(null)
-  const [editingMember, setEditingMember] = useState<User | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(5)
   const [viewingMemberId, setViewingMemberId] = useState<string | null>(null)
 
+  const { data: members, isLoading, error } = useTeamUsers()
+
+  const memberList = members ?? []
+
   const filteredMembers = useMemo(
-    () => sortTeamMembers(filterTeamMembers(members, filters)),
-    [members, filters],
+    () => sortTeamMembers(filterTeamMembers(memberList, filters)),
+    [memberList, filters],
+  )
+
+  const totalPages = getTotalPages(filteredMembers.length, pageSize)
+  const currentPage = totalPages > 0 ? Math.min(page, totalPages) : 1
+  const paginatedMembers = useMemo(
+    () => paginateItems(filteredMembers, currentPage, pageSize),
+    [filteredMembers, currentPage, pageSize],
   )
 
   const viewingMember = useMemo(
-    () => members.find((member) => member.id === viewingMemberId) ?? null,
-    [members, viewingMemberId],
+    () => memberList.find((member) => member.id === viewingMemberId) ?? null,
+    [memberList, viewingMemberId],
   )
 
-  const handleAddClick = () => {
-    setEditingMember(null)
-    setFormMode('create')
-  }
-
-  const handleView = (member: User) => {
-    setViewingMemberId(member.id)
-  }
-
-  const handleEdit = (member: User) => {
-    setEditingMember(member)
-    setFormMode('edit')
-  }
-
-  const handleFormClose = () => {
-    setFormMode(null)
-    setEditingMember(null)
-  }
-
-  const handleFormSubmit = (input: UserFormInput) => {
-    if (formMode === 'create') {
-      setMembers((current) => [...current, createUserFromInput(input, current)])
-      return
-    }
-
-    if (formMode === 'edit' && editingMember) {
-      setMembers((current) =>
-        current.map((member) =>
-          member.id === editingMember.id ? updateUserFromInput(member, input) : member,
-        ),
-      )
-    }
-  }
-
-  const handleDeactivate = (member: User) => {
-    // Soft-delete: mark inactive rather than removing from the list
-    setMembers((current) =>
-      current.map((item) =>
-        item.id === member.id ? { ...item, status: 'inactive' } : item,
-      ),
-    )
+  const handleFiltersChange = (nextFilters: TeamFiltersState) => {
+    setFilters(nextFilters)
+    setPage(1)
   }
 
   return (
-    <div className="space-y-6">
-      <TeamHeader onAddClick={handleAddClick} />
-      <TeamStats members={members} />
-      <TeamFilters filters={filters} onChange={setFilters} />
-      <TeamTable
-        members={filteredMembers}
-        totalCount={members.length}
-        onView={handleView}
-        onEdit={handleEdit}
-        onDeactivate={handleDeactivate}
-      />
+    <QueryState
+      isLoading={isLoading && members === undefined}
+      error={error}
+      loadingMessage="Loading team..."
+    >
+      <div className="space-y-6">
+        <TeamHeader readOnly />
+        <TeamStats members={memberList} />
+        <TeamFilters filters={filters} onChange={handleFiltersChange} />
+        <TeamTable
+          members={paginatedMembers}
+          totalCount={memberList.length}
+          readOnly
+          onView={(member) => setViewingMemberId(member.id)}
+        />
+        <IncidentPagination
+          page={currentPage}
+          totalPages={totalPages}
+          onPrevious={() => setPage((current) => Math.max(1, current - 1))}
+          onNext={() => setPage((current) => Math.min(totalPages, current + 1))}
+        />
 
-      <MemberDetails
-        member={viewingMember}
-        onClose={() => setViewingMemberId(null)}
-        onEdit={handleEdit}
-      />
-
-      <MemberFormDialog
-        key={formMode === 'edit' && editingMember ? editingMember.id : 'create'}
-        open={formMode !== null}
-        mode={formMode === 'edit' ? 'edit' : 'create'}
-        initialValues={editingMember ? userToFormInput(editingMember) : undefined}
-        onClose={handleFormClose}
-        onSubmit={handleFormSubmit}
-      />
-    </div>
+        <MemberDetails
+          member={viewingMember}
+          readOnly
+          onClose={() => setViewingMemberId(null)}
+        />
+      </div>
+    </QueryState>
   )
 }

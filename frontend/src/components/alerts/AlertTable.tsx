@@ -9,18 +9,32 @@ import AlertRow, { AlertMobileCard } from './AlertRow.tsx'
 
 interface AlertTableProps {
   alerts: Alert[]
+  totalCount: number
   services: Service[]
+  onAcknowledge?: (alert: Alert) => void
+  onResolve?: (alert: Alert) => void
+  mutatingAlertId?: string | null
 }
 
-export default function AlertTable({ alerts, services }: AlertTableProps) {
+export default function AlertTable({
+  alerts,
+  totalCount,
+  services,
+  onAcknowledge,
+  onResolve,
+  mutatingAlertId = null,
+}: AlertTableProps) {
   const getServiceById = (id: string) => services.find((service) => service.id === id)
+  const hasNoAlerts = totalCount === 0
+  const hasNoMatches = !hasNoAlerts && alerts.length === 0
+  const showActions = onAcknowledge !== undefined || onResolve !== undefined
 
   return (
     <Card>
       <div className="border-b border-gray-100 px-5 py-4">
         <h3 className="text-base font-semibold text-gray-900">
           All Alerts
-          <span className="ml-2 text-sm font-normal text-gray-500">({alerts.length})</span>
+          <span className="ml-2 text-sm font-normal text-gray-500">({totalCount})</span>
         </h3>
       </div>
 
@@ -36,9 +50,11 @@ export default function AlertTable({ alerts, services }: AlertTableProps) {
                   <th className="py-3 pr-4 font-medium">Status</th>
                   <th className="hidden py-3 pr-4 font-medium md:table-cell">Service</th>
                   <th className="hidden py-3 pr-4 font-medium sm:table-cell">Created</th>
-                  <th className="px-5 py-3 font-medium">
-                    <span className="sr-only">Actions</span>
-                  </th>
+                  {showActions && (
+                    <th className="px-5 py-3 font-medium">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -47,6 +63,9 @@ export default function AlertTable({ alerts, services }: AlertTableProps) {
                     key={alert.id}
                     alert={alert}
                     service={getServiceById(alert.serviceId)}
+                    onAcknowledge={onAcknowledge}
+                    onResolve={onResolve}
+                    mutatingAlertId={mutatingAlertId}
                   />
                 ))}
               </tbody>
@@ -59,15 +78,42 @@ export default function AlertTable({ alerts, services }: AlertTableProps) {
                 key={alert.id}
                 alert={alert}
                 service={getServiceById(alert.serviceId)}
+                onAcknowledge={onAcknowledge}
+                onResolve={onResolve}
+                mutatingAlertId={mutatingAlertId}
               />
             ))}
           </div>
         </>
       ) : (
-        <p className="px-5 py-12 text-center text-sm text-gray-500">
-          No alerts match your filters.
-        </p>
+        <EmptyState hasNoAlerts={hasNoAlerts} hasNoMatches={hasNoMatches} />
       )}
     </Card>
   )
+}
+
+function EmptyState({
+  hasNoAlerts,
+  hasNoMatches,
+}: {
+  hasNoAlerts: boolean
+  hasNoMatches: boolean
+}) {
+  if (hasNoAlerts) {
+    return (
+      <p className="px-5 py-12 text-center text-sm text-gray-500">
+        No alerts have been recorded yet.
+      </p>
+    )
+  }
+
+  if (hasNoMatches) {
+    return (
+      <p className="px-5 py-12 text-center text-sm text-gray-500">
+        No alerts match your filters.
+      </p>
+    )
+  }
+
+  return null
 }

@@ -2,11 +2,13 @@
  * Dark navigation sidebar with active route highlighting.
  */
 
-import { Activity, ChevronUp, User } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { Activity, ChevronUp, LogOut, User } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
 
+import { useAuth } from '../../hooks/useAuth.ts'
 import { navItems } from '../../lib/navigation.ts'
 import { cn } from '../../lib/utils.ts'
+import { authRoleLabels } from '../../types/auth.ts'
 
 interface SidebarProps {
   isOpen: boolean
@@ -14,6 +16,15 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    onClose()
+    navigate('/login', { replace: true })
+  }
+
   return (
     <>
       {isOpen && (
@@ -60,18 +71,25 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         <div className="border-t border-sidebar-border p-4">
-          <button
-            type="button"
-            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-sidebar-hover"
-          >
+          <div className="flex items-center gap-3 rounded-lg px-2 py-2">
             <div className="flex size-9 items-center justify-center rounded-full bg-sidebar-active">
               <User className="size-4 text-sidebar-muted" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">Peter</p>
-              <p className="truncate text-xs text-sidebar-muted">Engineer</p>
+              <p className="truncate text-sm font-medium text-white">{user?.name ?? 'User'}</p>
+              <p className="truncate text-xs text-sidebar-muted">
+                {user ? authRoleLabels[user.role] : 'Signed in'}
+              </p>
             </div>
             <ChevronUp className="size-4 shrink-0 text-sidebar-muted" aria-hidden="true" />
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-2 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-hover hover:text-white"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+            Sign out
           </button>
         </div>
       </aside>

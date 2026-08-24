@@ -12,7 +12,8 @@ interface ServiceTableProps {
   services: Service[]
   totalCount: number
   onView: (service: Service) => void
-  onEdit: (service: Service) => void
+  onEdit?: (service: Service) => void
+  onDelete?: (service: Service) => void
 }
 
 export default function ServiceTable({
@@ -20,6 +21,7 @@ export default function ServiceTable({
   totalCount,
   onView,
   onEdit,
+  onDelete,
 }: ServiceTableProps) {
   const hasNoServices = totalCount === 0
   const hasNoMatches = !hasNoServices && services.length === 0
@@ -57,6 +59,7 @@ export default function ServiceTable({
                     service={service}
                     onView={onView}
                     onEdit={onEdit}
+                    onDelete={onDelete}
                   />
                 ))}
               </tbody>
@@ -70,6 +73,7 @@ export default function ServiceTable({
                 service={service}
                 onView={onView}
                 onEdit={onEdit}
+                onDelete={onDelete}
               />
             ))}
           </div>

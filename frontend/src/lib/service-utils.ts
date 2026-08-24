@@ -15,13 +15,14 @@ export function createServiceId(existing: Service[]): string {
 
 export function createServiceFromInput(input: ServiceFormInput, existing: Service[]): Service {
   const now = new Date().toISOString()
+  const uptime = input.uptime !== undefined && !Number.isNaN(input.uptime) ? input.uptime : 100
 
   return {
     id: createServiceId(existing),
     name: input.name,
     description: input.description,
     status: input.status,
-    uptime: 100,
+    uptime,
     responseTime: 0,
     team: input.team,
     category: input.category,
@@ -54,6 +55,8 @@ export function updateServiceFromInput(service: Service, input: ServiceFormInput
     category: input.category,
     environment: input.environment,
     ownerId: input.ownerId,
+    uptime:
+      input.uptime !== undefined && !Number.isNaN(input.uptime) ? input.uptime : service.uptime,
     lastCheck: new Date().toISOString(),
   }
 }
@@ -62,10 +65,11 @@ export function serviceToFormInput(service: Service): ServiceFormInput {
   return {
     name: service.name,
     description: service.description,
+    ownerId: service.ownerId,
+    uptime: Number.isFinite(service.uptime) ? service.uptime : undefined,
     status: service.status,
     category: service.category,
     environment: service.environment,
     team: service.team,
-    ownerId: service.ownerId,
   }
 }

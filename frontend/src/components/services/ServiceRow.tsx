@@ -2,7 +2,7 @@
  * Single service row with status badge and uptime.
  */
 
-import { Eye, Pencil } from 'lucide-react'
+import { Eye, Pencil, Trash2 } from 'lucide-react'
 
 import type { Service } from '../../types/service.ts'
 import ServiceIcon from './ServiceIcon.tsx'
@@ -18,10 +18,11 @@ import { serviceCategoryLabels } from '../../types/service.ts'
 interface ServiceRowProps {
   service: Service
   onView: (service: Service) => void
-  onEdit: (service: Service) => void
+  onEdit?: (service: Service) => void
+  onDelete?: (service: Service) => void
 }
 
-export default function ServiceRow({ service, onView, onEdit }: ServiceRowProps) {
+export default function ServiceRow({ service, onView, onEdit, onDelete }: ServiceRowProps) {
   return (
     <tr className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50">
       <td className="px-5 py-4 pr-4">
@@ -62,21 +63,33 @@ export default function ServiceRow({ service, onView, onEdit }: ServiceRowProps)
           >
             <Eye className="size-4" aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            aria-label={`Edit ${service.name}`}
-            onClick={() => onEdit(service)}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-          >
-            <Pencil className="size-4" aria-hidden="true" />
-          </button>
+          {onEdit && (
+            <button
+              type="button"
+              aria-label={`Edit ${service.name}`}
+              onClick={() => onEdit(service)}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            >
+              <Pencil className="size-4" aria-hidden="true" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              aria-label={`Delete ${service.name}`}
+              onClick={() => onDelete(service)}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+            </button>
+          )}
         </div>
       </td>
     </tr>
   )
 }
 
-export function ServiceMobileCard({ service, onView, onEdit }: ServiceRowProps) {
+export function ServiceMobileCard({ service, onView, onEdit, onDelete }: ServiceRowProps) {
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -106,14 +119,26 @@ export function ServiceMobileCard({ service, onView, onEdit }: ServiceRowProps) 
           <Eye className="size-3.5" aria-hidden="true" />
           View
         </button>
-        <button
-          type="button"
-          onClick={() => onEdit(service)}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
-        >
-          <Pencil className="size-3.5" aria-hidden="true" />
-          Edit
-        </button>
+        {onEdit && (
+          <button
+            type="button"
+            onClick={() => onEdit(service)}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <Pencil className="size-3.5" aria-hidden="true" />
+            Edit
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(service)}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" />
+            Delete
+          </button>
+        )}
       </div>
     </div>
   )

@@ -99,7 +99,10 @@ export default function ServiceDetails({ service, owner, onClose }: ServiceDetai
           <div className="mt-6 grid grid-cols-2 gap-4">
             <DetailStat label="Uptime" value={formatUptime(service.uptime)} />
             <DetailStat label="Response Time" value={formatResponseTime(service.responseTime)} />
-            <DetailStat label="Owner" value={owner?.name ?? 'Unassigned'} />
+            <DetailStat
+              label="Owner"
+              value={owner?.name ?? (service.ownerId ? `User #${service.ownerId}` : 'Unassigned')}
+            />
             <DetailStat
               label="Last Check"
               value={formatRelativeTime(service.lastCheck)}

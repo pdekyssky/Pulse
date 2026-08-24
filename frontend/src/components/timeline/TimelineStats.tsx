@@ -4,17 +4,14 @@
 
 import { AlertTriangle, Bell, Calendar, Rocket } from 'lucide-react'
 
-import type { TimelineEvent } from '../../types/timeline.ts'
+import type { TimelineStats as TimelineStatsData } from '../../lib/timeline-stats.ts'
 import StatCard from '../dashboard/StatCard.tsx'
-import { computeTimelineStats } from '../../lib/timeline-stats.ts'
 
 interface TimelineStatsProps {
-  events: TimelineEvent[]
+  stats: TimelineStatsData
 }
 
-export default function TimelineStats({ events }: TimelineStatsProps) {
-  const stats = computeTimelineStats(events)
-
+export default function TimelineStats({ stats }: TimelineStatsProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard label="Events Today" value={stats.eventsToday} icon={Calendar} variant="default" />

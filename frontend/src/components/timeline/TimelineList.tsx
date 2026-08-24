@@ -10,19 +10,28 @@ import { groupTimelineEventsByDate } from '../../lib/timeline-stats.ts'
 
 interface TimelineListProps {
   events: TimelineEvent[]
+  totalCount: number
   services: Service[]
 }
 
-export default function TimelineList({ events, services }: TimelineListProps) {
+export default function TimelineList({ events, totalCount, services }: TimelineListProps) {
   const getServiceById = (id?: string) =>
     id ? services.find((service) => service.id === id) : undefined
 
   const groupedEvents = groupTimelineEventsByDate(events)
+  const hasNoEvents = totalCount === 0
+  const hasNoMatches = !hasNoEvents && events.length === 0
 
   if (events.length === 0) {
     return (
       <Card className="px-5 py-12 text-center">
-        <p className="text-sm text-gray-500">No timeline events match your filters.</p>
+        <p className="text-sm text-gray-500">
+          {hasNoEvents
+            ? 'No timeline events have been recorded yet.'
+            : hasNoMatches
+              ? 'No timeline events match your filters.'
+              : 'No timeline events on this page.'}
+        </p>
       </Card>
     )
   }

@@ -40,6 +40,10 @@ export default function IncidentTimeline({ events, users }: IncidentTimelineProp
   const getUserName = (userId?: string) =>
     users.find((user) => user.id === userId)?.name ?? 'System'
 
+  if (events.length === 0) {
+    return <p className="text-sm text-gray-500">No timeline events yet.</p>
+  }
+
   return (
     <div className="space-y-0">
       {events.map((event, index) => {

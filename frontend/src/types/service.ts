@@ -53,9 +53,31 @@ export const serviceEnvironmentLabels: Record<ServiceEnvironment, string> = {
 export interface ServiceFormInput {
   name: string
   description: string
-  status: ServiceStatus
-  category: ServiceCategory
-  environment: ServiceEnvironment
-  team: string
   ownerId: string
+  /** Uptime percentage (0–999.99). Required for create; populated from service on edit when available. */
+  uptime?: number
+  /** UI-only — not sent to the Services CRUD API */
+  status: ServiceStatus
+  /** UI-only — not sent to the Services CRUD API */
+  category: ServiceCategory
+  /** UI-only — not sent to the Services CRUD API */
+  environment: ServiceEnvironment
+  /** UI-only — not sent to the Services CRUD API */
+  team: string
+}
+
+/** Backend-backed create fields derived from ServiceFormInput. */
+export interface ServiceCreateFormInput {
+  name: string
+  description: string
+  ownerId: string
+  uptime: number | string
+}
+
+/** Backend-backed update fields for partial PATCH payloads. */
+export interface ServiceUpdateFormInput {
+  name?: string
+  description?: string
+  ownerId?: string
+  uptime?: number | string
 }

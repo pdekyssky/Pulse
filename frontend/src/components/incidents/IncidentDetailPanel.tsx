@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { CheckCircle2, ChevronDown, X } from 'lucide-react'
 
-import type { Incident, IncidentStatus } from '../../types/incident.ts'
+import type { Incident, IncidentComment, IncidentEvent, IncidentStatus } from '../../types/incident.ts'
 import type { Service } from '../../types/service.ts'
 import type { User } from '../../types/user.ts'
 import StatusBadge from '../ui/StatusBadge.tsx'
@@ -29,11 +29,15 @@ type DetailTab = 'timeline' | 'details' | 'logs' | 'services' | 'comments'
 
 interface IncidentDetailPanelProps {
   incident: Incident | null
+  events: IncidentEvent[]
+  comments: IncidentComment[]
+  isDetailLoading?: boolean
+  detailError?: Error | null
   services: Service[]
   users: User[]
   onClose: () => void
-  onChangeStatus: (id: string, status: IncidentStatus) => void
-  onResolve: (id: string) => void
+  onChangeStatus?: (id: string, status: IncidentStatus) => void
+  onResolve?: (id: string) => void
 }
 
 const tabs: Array<{ id: DetailTab; label: string }> = [
@@ -44,14 +48,12 @@ const tabs: Array<{ id: DetailTab; label: string }> = [
   { id: 'comments', label: 'Comments' },
 ]
 
-const logLevelStyles = {
-  info: 'text-blue-600 bg-blue-50',
-  warn: 'text-orange-600 bg-orange-50',
-  error: 'text-red-600 bg-red-50',
-} as const
-
 export default function IncidentDetailPanel({
   incident,
+  events,
+  comments,
+  isDetailLoading = false,
+  detailError = null,
   services,
   users,
   onClose,
@@ -111,25 +113,23 @@ export default function IncidentDetailPanel({
             <MiniStat label="Duration" value={incident.duration} />
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            {incident.status !== 'resolved' && (
-              <>
-                <StatusAction
-                  label="Change Status"
-                  onSelect={(status) => onChangeStatus(incident.id, status)}
-                  currentStatus={incident.status}
-                />
-                <button
-                  type="button"
-                  onClick={() => onResolve(incident.id)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700"
-                >
-                  <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                  Resolve
-                </button>
-              </>
-            )}
-          </div>
+          {onChangeStatus && onResolve && incident.status !== 'resolved' && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <StatusAction
+                label="Change Status"
+                onSelect={(status) => onChangeStatus(incident.id, status)}
+                currentStatus={incident.status}
+              />
+              <button
+                type="button"
+                onClick={() => onResolve(incident.id)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700"
+              >
+                <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                Resolve
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="border-b border-gray-100 px-5">
@@ -153,9 +153,14 @@ export default function IncidentDetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          {activeTab === 'timeline' && (
-            <IncidentTimeline events={incident.timeline} users={users} />
-          )}
+          {activeTab === 'timeline' &&
+            (isDetailLoading ? (
+              <DetailLoading message="Loading timeline..." />
+            ) : detailError ? (
+              <DetailError error={detailError} />
+            ) : (
+              <IncidentTimeline events={events} users={users} />
+            ))}
 
           {activeTab === 'details' && (
             <div className="space-y-4">
@@ -184,31 +189,7 @@ export default function IncidentDetailPanel({
           )}
 
           {activeTab === 'logs' && (
-            <div className="space-y-2">
-              {incident.logs.length > 0 ? (
-                incident.logs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={cn(
-                          'rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase',
-                          logLevelStyles[log.level],
-                        )}
-                      >
-                        {log.level}
-                      </span>
-                      <span className="text-xs text-gray-500">{formatTime(log.timestamp)}</span>
-                    </div>
-                    <p className="mt-1.5 font-mono text-xs text-gray-700">{log.message}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500">No logs available.</p>
-              )}
-            </div>
+            <p className="text-sm text-gray-500">No logs available.</p>
           )}
 
           {activeTab === 'services' && (
@@ -234,12 +215,30 @@ export default function IncidentDetailPanel({
             </div>
           )}
 
-          {activeTab === 'comments' && (
-            <IncidentCommentList comments={incident.comments} users={users} />
-          )}
+          {activeTab === 'comments' &&
+            (isDetailLoading ? (
+              <DetailLoading message="Loading comments..." />
+            ) : detailError ? (
+              <DetailError error={detailError} />
+            ) : (
+              <IncidentCommentList comments={comments} users={users} />
+            ))}
         </div>
       </aside>
     </>
+  )
+}
+
+function DetailLoading({ message }: { message: string }) {
+  return <p className="text-sm text-gray-500">{message}</p>
+}
+
+function DetailError({ error }: { error: Error }) {
+  return (
+    <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+      <h4 className="text-sm font-semibold text-red-800">Unable to load incident details</h4>
+      <p className="mt-1 text-sm text-red-700">{error.message}</p>
+    </div>
   )
 }
 

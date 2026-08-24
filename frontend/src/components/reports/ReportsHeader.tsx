@@ -1,14 +1,15 @@
 /**
- * Reports page header with generate-report action.
+ * Reports page header with optional generate-report action.
  */
 
 import { Plus } from 'lucide-react'
 
 interface ReportsHeaderProps {
-  onGenerateClick: () => void
+  readOnly?: boolean
+  onGenerateClick?: () => void
 }
 
-export default function ReportsHeader({ onGenerateClick }: ReportsHeaderProps) {
+export default function ReportsHeader({ readOnly = false, onGenerateClick }: ReportsHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -18,14 +19,16 @@ export default function ReportsHeader({ onGenerateClick }: ReportsHeaderProps) {
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onGenerateClick}
-        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pulse-700"
-      >
-        <Plus className="size-4" aria-hidden="true" />
-        Generate Report
-      </button>
+      {!readOnly && onGenerateClick && (
+        <button
+          type="button"
+          onClick={onGenerateClick}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pulse-700"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          Generate Report
+        </button>
+      )}
     </div>
   )
 }

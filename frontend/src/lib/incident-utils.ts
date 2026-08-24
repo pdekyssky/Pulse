@@ -9,6 +9,11 @@ import type {
   IncidentStatus,
 } from '../types/incident.ts'
 
+export function parseIncidentNumericId(id: string): number | null {
+  const parsed = Number.parseInt(id.replace(/^inc-/i, ''), 10)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
 export function createIncidentId(existing: Incident[]): string {
   // Parse numeric suffix from existing IDs (e.g. "inc-003" → 3)
   const numbers = existing

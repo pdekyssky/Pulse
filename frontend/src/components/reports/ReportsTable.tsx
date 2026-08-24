@@ -13,15 +13,17 @@ interface ReportsTableProps {
   reports: Report[]
   totalCount: number
   users: User[]
+  readOnly?: boolean
   onView: (report: Report) => void
   onDownload: (report: Report) => void
-  onDelete: (report: Report) => void
+  onDelete?: (report: Report) => void
 }
 
 export default function ReportsTable({
   reports,
   totalCount,
   users,
+  readOnly = false,
   onView,
   onDownload,
   onDelete,
@@ -62,6 +64,7 @@ export default function ReportsTable({
                     key={report.id}
                     report={report}
                     author={getUserById(report.generatedById)}
+                    readOnly={readOnly}
                     onView={onView}
                     onDownload={onDownload}
                     onDelete={onDelete}
@@ -77,6 +80,7 @@ export default function ReportsTable({
                 key={report.id}
                 report={report}
                 author={getUserById(report.generatedById)}
+                readOnly={readOnly}
                 onView={onView}
                 onDownload={onDownload}
                 onDelete={onDelete}

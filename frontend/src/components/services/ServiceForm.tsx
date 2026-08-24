@@ -16,14 +16,45 @@ import {
 import { serviceStatusLabels } from '../../lib/overview-stats.ts'
 import { cn } from '../../lib/utils.ts'
 
-const serviceFormSchema = z.object({
+const uptimeRequiredSchema = z
+  .number({ message: 'Enter a valid uptime percentage' })
+  .refine((value) => !Number.isNaN(value), 'Uptime is required')
+  .min(0, 'Uptime must be at least 0')
+  .max(999.99, 'Uptime must be at most 999.99')
+  .refine(
+    (value) => Math.round(value * 100) / 100 === value,
+    'Uptime allows at most 2 decimal places',
+  )
+
+const uptimeOptionalSchema = z
+  .number({ message: 'Enter a valid uptime percentage' })
+  .refine((value) => Number.isNaN(value) || value >= 0, 'Uptime must be at least 0')
+  .refine(
+    (value) => Number.isNaN(value) || value <= 999.99,
+    'Uptime must be at most 999.99',
+  )
+  .refine(
+    (value) => Number.isNaN(value) || Math.round(value * 100) / 100 === value,
+    'Uptime allows at most 2 decimal places',
+  )
+  .optional()
+
+const serviceFormBaseSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
+  ownerId: z.string().min(1, 'Select an owner'),
   status: z.enum(['operational', 'degraded', 'down']),
   category: z.enum(['application', 'infrastructure', 'platform']),
   environment: z.enum(['production', 'staging', 'development']),
-  team: z.string().min(2, 'Team name is required'),
-  ownerId: z.string().min(1, 'Select an owner'),
+  team: z.string(),
+})
+
+const createFormSchema = serviceFormBaseSchema.extend({
+  uptime: uptimeRequiredSchema,
+})
+
+const editFormSchema = serviceFormBaseSchema.extend({
+  uptime: uptimeOptionalSchema,
 })
 
 interface ServiceFormDialogProps {
@@ -32,7 +63,9 @@ interface ServiceFormDialogProps {
   users: User[]
   initialValues?: ServiceFormInput
   onClose: () => void
-  onSubmit: (input: ServiceFormInput) => void
+  onSubmit: (input: ServiceFormInput) => void | Promise<void>
+  isPending?: boolean
+  submitError?: string | null
 }
 
 const defaultValues: ServiceFormInput = {
@@ -52,11 +85,12 @@ export default function ServiceFormDialog({
   initialValues,
   onClose,
   onSubmit,
+  isPending = false,
+  submitError = null,
 }: ServiceFormDialogProps) {
   const {
     register,
     handleSubmit,
-    reset,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<ServiceFormInput>({
@@ -68,8 +102,12 @@ export default function ServiceFormDialog({
     return null
   }
 
-  const submit = handleSubmit((data) => {
-    const parsed = serviceFormSchema.safeParse(data)
+  const submit = handleSubmit(async (data) => {
+    const parsed =
+      mode === 'create'
+        ? createFormSchema.safeParse(data)
+        : editFormSchema.safeParse(data)
+
     if (!parsed.success) {
       parsed.error.issues.forEach((issue) => {
         const field = issue.path[0] as keyof ServiceFormInput
@@ -78,13 +116,25 @@ export default function ServiceFormDialog({
       return
     }
 
-    onSubmit(parsed.data)
-    reset(defaultValues)
-    onClose()
+    const formInput: ServiceFormInput = {
+      ...parsed.data,
+      uptime:
+        parsed.data.uptime !== undefined && !Number.isNaN(parsed.data.uptime)
+          ? parsed.data.uptime
+          : undefined,
+    }
+
+    await onSubmit(formInput)
   })
 
   const title = mode === 'create' ? 'Create Service' : 'Edit Service'
   const submitLabel = mode === 'create' ? 'Create Service' : 'Save Changes'
+  const pending = isSubmitting || isPending
+  const pendingLabel = mode === 'create' ? 'Creating...' : 'Saving...'
+  const displayValues = initialValues ?? defaultValues
+  const uptimeUnavailable =
+    mode === 'edit' &&
+    (displayValues.uptime === undefined || Number.isNaN(displayValues.uptime))
 
   return (
     <>
@@ -134,50 +184,58 @@ export default function ServiceFormDialog({
               />
             </FormField>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Status" error={errors.status?.message}>
-                <select {...register('status')} className={inputClassName(!!errors.status)}>
-                  {(['operational', 'degraded', 'down'] as const).map((status) => (
-                    <option key={status} value={status}>
-                      {serviceStatusLabels[status]}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
+            <FormField
+              label="Uptime (%)"
+              error={errors.uptime?.message}
+              hint="Percentage with up to 2 decimal places (0–999.99)."
+            >
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="999.99"
+                {...register('uptime', { valueAsNumber: true })}
+                className={inputClassName(!!errors.uptime)}
+                placeholder={uptimeUnavailable ? 'Not available' : 'e.g. 99.95'}
+              />
+            </FormField>
 
-              <FormField label="Category" error={errors.category?.message}>
-                <select {...register('category')} className={inputClassName(!!errors.category)}>
-                  {Object.entries(serviceCategoryLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-            </div>
+            {mode === 'create' && (
+              <>
+                <input type="hidden" {...register('status')} />
+                <input type="hidden" {...register('category')} />
+                <input type="hidden" {...register('environment')} />
+                <input type="hidden" {...register('team')} />
+              </>
+            )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Environment" error={errors.environment?.message}>
-                <select
-                  {...register('environment')}
-                  className={inputClassName(!!errors.environment)}
-                >
-                  {Object.entries(serviceEnvironmentLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
+            {mode === 'edit' && (
+              <>
+                <input type="hidden" {...register('status')} />
+                <input type="hidden" {...register('category')} />
+                <input type="hidden" {...register('environment')} />
+                <input type="hidden" {...register('team')} />
 
-              <FormField label="Team" error={errors.team?.message}>
-                <input
-                  {...register('team')}
-                  className={inputClassName(!!errors.team)}
-                  placeholder="e.g. Platform Engineering"
-                />
-              </FormField>
-            </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <ReadOnlyField
+                    label="Status"
+                    value={serviceStatusLabels[displayValues.status]}
+                  />
+                  <ReadOnlyField
+                    label="Category"
+                    value={serviceCategoryLabels[displayValues.category]}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <ReadOnlyField
+                    label="Environment"
+                    value={serviceEnvironmentLabels[displayValues.environment]}
+                  />
+                  <ReadOnlyField label="Team" value={displayValues.team || '—'} />
+                </div>
+              </>
+            )}
 
             <FormField label="Owner" error={errors.ownerId?.message}>
               <select {...register('ownerId')} className={inputClassName(!!errors.ownerId)}>
@@ -190,20 +248,27 @@ export default function ServiceFormDialog({
               </select>
             </FormField>
 
+            {submitError && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {submitError}
+              </p>
+            )}
+
             <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                disabled={pending}
+                className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={pending}
                 className="rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pulse-700 disabled:opacity-50"
               >
-                {submitLabel}
+                {pending ? pendingLabel : submitLabel}
               </button>
             </div>
           </form>
@@ -216,17 +281,31 @@ export default function ServiceFormDialog({
 function FormField({
   label,
   error,
+  hint,
   children,
 }: {
   label: string
   error?: string
+  hint?: string
   children: ReactNode
 }) {
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
       {children}
+      {hint && !error && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  )
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
+      <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+        {value}
+      </p>
     </div>
   )
 }

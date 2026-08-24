@@ -5,7 +5,7 @@
 import { Plus } from 'lucide-react'
 
 interface IncidentsHeaderProps {
-  onCreateClick: () => void
+  onCreateClick?: () => void
 }
 
 export default function IncidentsHeader({ onCreateClick }: IncidentsHeaderProps) {
@@ -18,14 +18,16 @@ export default function IncidentsHeader({ onCreateClick }: IncidentsHeaderProps)
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onCreateClick}
-        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pulse-700"
-      >
-        <Plus className="size-4" aria-hidden="true" />
-        Create Incident
-      </button>
+      {onCreateClick && (
+        <button
+          type="button"
+          onClick={onCreateClick}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pulse-700"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          Create Incident
+        </button>
+      )}
     </div>
   )
 }

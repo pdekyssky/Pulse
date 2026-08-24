@@ -25,7 +25,7 @@ interface IncidentRowProps {
   primaryService?: Service
   assignee?: User
   onSelect: (incident: Incident) => void
-  onResolve: (incident: Incident) => void
+  onResolve?: (incident: Incident) => void
 }
 
 export default function IncidentRow({
@@ -80,7 +80,7 @@ export default function IncidentRow({
       </td>
       <td className="px-5 py-4 text-right">
         <div className="flex items-center justify-end gap-1">
-          {incident.status !== 'resolved' && (
+          {onResolve && incident.status !== 'resolved' && (
             <button
               type="button"
               title="Resolve"
@@ -106,29 +106,33 @@ export default function IncidentRow({
           >
             <Eye className="size-4" aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            title="Edit"
-            aria-label={`Edit ${formatIncidentId(incident.id)}`}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            onClick={(event) => {
-              event.stopPropagation()
-              onSelect(incident)
-            }}
-          >
-            <Pencil className="size-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label={`More actions for ${formatIncidentId(incident.id)}`}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            onClick={(event) => {
-              event.stopPropagation()
-              onSelect(incident)
-            }}
-          >
-            <MoreHorizontal className="size-4" aria-hidden="true" />
-          </button>
+          {onResolve && (
+            <>
+              <button
+                type="button"
+                title="Edit"
+                aria-label={`Edit ${formatIncidentId(incident.id)}`}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onSelect(incident)
+                }}
+              >
+                <Pencil className="size-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={`More actions for ${formatIncidentId(incident.id)}`}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onSelect(incident)
+                }}
+              >
+                <MoreHorizontal className="size-4" aria-hidden="true" />
+              </button>
+            </>
+          )}
         </div>
       </td>
     </tr>

@@ -1,30 +1,65 @@
 services:
-  postgres:
-    image: postgres:17
-    container_name: pulse-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: pulse
-      POSTGRES_USER: pulse
-      POSTGRES_PASSWORD: pulse_dev_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
 
-  backend:
+  # ==========================================
+  # OLD POSTGRESQL DATABASE
+  # Keep for reference - currently not used
+  # ==========================================
+
+  # postgres:
+  #   image: postgres:17
+  #   container_name: pulse-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: pulse
+  #     POSTGRES_USER: pulse
+  #     POSTGRES_PASSWORD: pulse_dev_password
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+
+
+  # ==========================================
+  # OLD PYTHON BACKEND
+  # Keep for reference - currently not used
+  # ==========================================
+
+  # backend:
+  #   build:
+  #     context: ./backend
+  #   container_name: pulse-backend
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./backend:/app
+  #   depends_on:
+  #     - postgres
+
+
+  # ==========================================
+  # NEW EXPRESS BACKEND
+  # ==========================================
+
+  express:
     build:
-      context: ./backend
-    container_name: pulse-backend
+      context: ./backend/express
+    container_name: pulse-express
     restart: unless-stopped
     env_file:
-      - .env
+      - ./backend/express/.env
     ports:
-      - "8000:8000"
+      - "5000:5000"
     volumes:
-      - ./backend:/app
-    depends_on:
-      - postgres
+      - ./backend/express:/app
+      - /app/node_modules
+
+
+  # ==========================================
+  # FRONTEND
+  # ==========================================
 
   frontend:
     build:
@@ -37,7 +72,13 @@ services:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
-      - backend
+      - express
 
-volumes:
-  postgres_data:
+
+# ==========================================
+# OLD POSTGRES VOLUME
+# Keep for reference
+# ==========================================
+
+# volumes:
+#   postgres_data:

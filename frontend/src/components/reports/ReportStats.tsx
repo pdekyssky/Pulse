@@ -1,27 +1,24 @@
 /**
- * Summary stat cards for report counts by status.
+ * KPI stat cards for report summary metrics.
  */
 
-import { CalendarClock, FileBarChart, FileText, Server } from 'lucide-react'
+import { CalendarClock, FileText, Layers, Server } from 'lucide-react'
 
-import type { Report } from '../../types/report.ts'
+import type { ReportStatsSummary } from '../../lib/report-stats.ts'
 import StatCard from '../dashboard/StatCard.tsx'
-import { computeReportStats } from '../../lib/report-stats.ts'
 
 interface ReportStatsProps {
-  reports: Report[]
+  stats: ReportStatsSummary
 }
 
-export default function ReportStats({ reports }: ReportStatsProps) {
-  const stats = computeReportStats(reports)
-
+export default function ReportStats({ stats }: ReportStatsProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard label="Reports Generated" value={stats.total} icon={FileText} variant="default" />
       <StatCard
         label="Incident Reports"
         value={stats.incidentReports}
-        icon={FileBarChart}
+        icon={Layers}
         variant="incidents"
       />
       <StatCard
@@ -34,7 +31,7 @@ export default function ReportStats({ reports }: ReportStatsProps) {
         label="Scheduled Reports"
         value={stats.scheduled}
         icon={CalendarClock}
-        variant="default"
+        variant="degraded"
       />
     </div>
   )
