@@ -1,13 +1,14 @@
 /**
- * Team member filtering, sorting, and roster summary stats.
+ * User filtering, sorting, and roster summary stats.
  */
 
+import type { UserListParams } from '../types/api/user.ts'
 import type { User, UserRole, UserStatus } from '../types/user.ts'
 
 export interface TeamStatsSummary {
   total: number
   active: number
-  engineers: number
+  managers: number
   admins: number
 }
 
@@ -15,7 +16,7 @@ export function computeTeamStats(members: User[]): TeamStatsSummary {
   return {
     total: members.length,
     active: members.filter((member) => member.status === 'active').length,
-    engineers: members.filter((member) => member.role === 'engineer').length,
+    managers: members.filter((member) => member.role === 'manager').length,
     admins: members.filter((member) => member.role === 'admin').length,
   }
 }
@@ -55,8 +56,7 @@ export function filterTeamMembers(members: User[], filters: TeamFilters): User[]
 export function sortTeamMembers(members: User[]): User[] {
   const statusOrder: Record<UserStatus, number> = {
     active: 0,
-    invited: 1,
-    inactive: 2,
+    inactive: 1,
   }
 
   return [...members].sort((a, b) => {
@@ -67,4 +67,31 @@ export function sortTeamMembers(members: User[]): User[] {
 
     return a.name.localeCompare(b.name)
   })
+}
+
+export function buildUserListParams(
+  filters: TeamFilters,
+  page: number,
+  pageSize: number,
+): UserListParams {
+  const params: UserListParams = {
+    page,
+    page_size: pageSize,
+  }
+
+  const search = filters.search.trim()
+  if (search.length > 0) {
+    params.search = search
+  }
+  if (filters.role !== 'all') {
+    params.role = filters.role
+  }
+  if (filters.status === 'active') {
+    params.is_active = true
+  }
+  if (filters.status === 'inactive') {
+    params.is_active = false
+  }
+
+  return params
 }

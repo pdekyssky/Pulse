@@ -1,5 +1,5 @@
 /**
- * Modal form for creating a user through POST /users.
+ * Modal form for editing incident title and description via PATCH.
  */
 
 import { useEffect } from 'react'
@@ -8,66 +8,70 @@ import type { ReactNode } from 'react'
 import { z } from 'zod'
 import { X } from 'lucide-react'
 
-import type { CreateUserInput, UserRole } from '../../types/user.ts'
-import { userRoleLabels } from '../../types/user.ts'
+import type { Incident } from '../../types/incident.ts'
+import { formatIncidentId } from '../../lib/format.ts'
 import { cn } from '../../lib/utils.ts'
 
-const createUserSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
-  role: z.enum(['admin', 'manager', 'user']),
+const editIncidentSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  description: z.string(),
 })
 
-interface MemberFormDialogProps {
+export interface EditIncidentInput {
+  title: string
+  description: string
+}
+
+interface EditIncidentDialogProps {
+  incident: Incident | null
   open: boolean
   onClose: () => void
-  onSubmit: (input: CreateUserInput) => void | Promise<void>
+  onSubmit: (input: EditIncidentInput) => void | Promise<void>
   isPending?: boolean
   submitError?: string | null
 }
 
-const defaultValues: CreateUserInput = {
-  name: '',
-  email: '',
-  password: '',
-  role: 'user',
-}
-
-export default function MemberFormDialog({
+export default function EditIncidentDialog({
+  incident,
   open,
   onClose,
   onSubmit,
   isPending = false,
   submitError = null,
-}: MemberFormDialogProps) {
+}: EditIncidentDialogProps) {
   const {
     register,
     handleSubmit,
     reset,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<CreateUserInput>({
-    defaultValues,
+  } = useForm<EditIncidentInput>({
+    defaultValues: {
+      title: '',
+      description: '',
+    },
   })
 
   useEffect(() => {
-    if (open) {
-      reset(defaultValues)
+    if (open && incident) {
+      reset({
+        title: incident.title,
+        description: incident.description,
+      })
     }
-  }, [open, reset])
+  }, [incident, open, reset])
 
-  if (!open) {
+  if (!open || !incident) {
     return null
   }
 
   const pending = isSubmitting || isPending
 
   const submit = handleSubmit(async (data) => {
-    const parsed = createUserSchema.safeParse(data)
+    const parsed = editIncidentSchema.safeParse(data)
     if (!parsed.success) {
       parsed.error.issues.forEach((issue) => {
-        const field = issue.path[0] as keyof CreateUserInput
+        const field = issue.path[0] as keyof EditIncidentInput
         setError(field, { message: issue.message })
       })
       return
@@ -81,21 +85,21 @@ export default function MemberFormDialog({
       <button
         type="button"
         aria-label="Close dialog"
-        className="fixed inset-0 z-40 bg-black/40"
+        className="fixed inset-0 z-[60] bg-black/40"
         onClick={onClose}
         disabled={pending}
       />
 
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <div
           role="dialog"
           aria-modal="true"
-          aria-labelledby="member-form-title"
+          aria-labelledby="edit-incident-title"
           className="w-full max-w-lg rounded-xl border border-gray-200 bg-white shadow-xl"
         >
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-            <h3 id="member-form-title" className="text-lg font-semibold text-gray-900">
-              Add User
+            <h3 id="edit-incident-title" className="text-lg font-semibold text-gray-900">
+              Edit {formatIncidentId(incident.id)}
             </h3>
             <button
               type="button"
@@ -109,50 +113,22 @@ export default function MemberFormDialog({
           </div>
 
           <form onSubmit={submit} className="space-y-4 px-5 py-5">
-            <FormField label="Name" error={errors.name?.message}>
+            <Field label="Title" error={errors.title?.message}>
               <input
-                {...register('name')}
+                {...register('title')}
                 disabled={pending}
-                className={inputClassName(!!errors.name)}
-                placeholder="e.g. Jane Smith"
+                className={inputClass(!!errors.title)}
               />
-            </FormField>
+            </Field>
 
-            <FormField label="Email" error={errors.email?.message}>
-              <input
-                type="email"
-                {...register('email')}
+            <Field label="Description" error={errors.description?.message}>
+              <textarea
+                {...register('description')}
+                rows={4}
                 disabled={pending}
-                className={inputClassName(!!errors.email)}
-                placeholder="jane.smith@pulse.io"
+                className={cn(inputClass(!!errors.description), 'resize-none')}
               />
-            </FormField>
-
-            <FormField label="Password" error={errors.password?.message}>
-              <input
-                type="password"
-                {...register('password')}
-                disabled={pending}
-                className={inputClassName(!!errors.password)}
-                placeholder="Set an initial password"
-              />
-            </FormField>
-
-            <FormField label="Role" error={errors.role?.message}>
-              <select
-                {...register('role')}
-                disabled={pending}
-                className={inputClassName(!!errors.role)}
-              >
-                {(Object.entries(userRoleLabels) as Array<[UserRole, string]>).map(
-                  ([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ),
-                )}
-              </select>
-            </FormField>
+            </Field>
 
             {submitError && (
               <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -172,9 +148,9 @@ export default function MemberFormDialog({
               <button
                 type="submit"
                 disabled={pending}
-                className="rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pulse-700 disabled:opacity-50"
+                className="rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pulse-700 disabled:opacity-60"
               >
-                {pending ? 'Creating...' : 'Add User'}
+                {pending ? 'Saving...' : 'Save changes'}
               </button>
             </div>
           </form>
@@ -184,7 +160,7 @@ export default function MemberFormDialog({
   )
 }
 
-function FormField({
+function Field({
   label,
   error,
   children,
@@ -202,9 +178,9 @@ function FormField({
   )
 }
 
-function inputClassName(hasError: boolean) {
+function inputClass(hasError: boolean): string {
   return cn(
-    'w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:opacity-50',
+    'w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:ring-2 focus:outline-none disabled:opacity-50',
     hasError
       ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
       : 'border-gray-200 focus:border-pulse-500 focus:ring-pulse-500/20',

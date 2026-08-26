@@ -1,31 +1,26 @@
 /**
- * Slide-over panel with service health and metric details.
+ * Slide-over panel with real service fields and related incidents.
  */
 
-import {
-  Activity,
-  ArrowDownRight,
-  ArrowUpRight,
-  Minus,
-  X,
-} from 'lucide-react'
+import { X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import type { Service } from '../../types/service.ts'
 import type { User } from '../../types/user.ts'
 import StatusBadge from '../ui/StatusBadge.tsx'
 import ServiceIcon from './ServiceIcon.tsx'
+import { useIncidentsList } from '../../hooks/useIncidentsQuery.ts'
 import {
   formatDateTime,
+  formatIncidentId,
   formatRelativeTime,
-  formatResponseTime,
   formatUptime,
   getInitials,
 } from '../../lib/format.ts'
+import { parseIncidentNumericId } from '../../lib/incident-utils.ts'
+import { parseServiceNumericId } from '../../lib/service-utils.ts'
 import { serviceStatusLabels } from '../../lib/overview-stats.ts'
-import {
-  serviceCategoryLabels,
-  serviceEnvironmentLabels,
-} from '../../types/service.ts'
+import { incidentStatusLabels } from '../../types/incident.ts'
 import { cn } from '../../lib/utils.ts'
 
 interface ServiceDetailsProps {
@@ -40,22 +35,22 @@ const statusIndicatorStyles: Record<Service['status'], string> = {
   down: 'bg-red-500',
 }
 
-const metricTrendIcons = {
-  up: ArrowUpRight,
-  down: ArrowDownRight,
-  stable: Minus,
-} as const
-
-const metricTrendColors = {
-  up: 'text-green-600',
-  down: 'text-red-600',
-  stable: 'text-gray-400',
-} as const
-
 export default function ServiceDetails({ service, owner, onClose }: ServiceDetailsProps) {
+  const numericId = service ? parseServiceNumericId(service.id) : null
+  const {
+    data: incidentData,
+    isLoading: isIncidentsLoading,
+    error: incidentsError,
+  } = useIncidentsList(
+    numericId ? { service_id: numericId, page_size: 10 } : {},
+    Boolean(numericId),
+  )
+
   if (!service) {
     return null
   }
+
+  const relatedIncidents = incidentData?.items ?? []
 
   return (
     <>
@@ -94,91 +89,70 @@ export default function ServiceDetails({ service, owner, onClose }: ServiceDetai
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          <p className="text-sm leading-relaxed text-gray-600">{service.description}</p>
+          <p className="text-sm leading-relaxed text-gray-600">
+            {service.description || 'No description provided.'}
+          </p>
 
           <div className="mt-6 grid grid-cols-2 gap-4">
             <DetailStat label="Uptime" value={formatUptime(service.uptime)} />
-            <DetailStat label="Response Time" value={formatResponseTime(service.responseTime)} />
             <DetailStat
               label="Owner"
               value={owner?.name ?? (service.ownerId ? `User #${service.ownerId}` : 'Unassigned')}
             />
             <DetailStat
-              label="Last Check"
-              value={formatRelativeTime(service.lastCheck)}
-              subtext={formatDateTime(service.lastCheck)}
+              label="Created"
+              value={formatDateTime(service.createdAt)}
+              subtext={formatRelativeTime(service.createdAt)}
             />
-            <DetailStat label="Team" value={service.team} />
-            <DetailStat label="Category" value={serviceCategoryLabels[service.category]} />
             <DetailStat
-              label="Environment"
-              value={serviceEnvironmentLabels[service.environment]}
+              label="Updated"
+              value={formatDateTime(service.updatedAt ?? service.createdAt)}
+              subtext={formatRelativeTime(service.updatedAt ?? service.createdAt)}
             />
-            <DetailStat label="Created" value={formatDateTime(service.createdAt)} />
           </div>
 
           <section className="mt-8">
-            <h4 className="text-sm font-semibold text-gray-900">Recent Metrics</h4>
+            <h4 className="text-sm font-semibold text-gray-900">Related incidents</h4>
             <div className="mt-3 space-y-2">
-              {service.recentMetrics.map((metric) => {
-                const TrendIcon = metric.trend ? metricTrendIcons[metric.trend] : Minus
+              {isIncidentsLoading ? (
+                <p className="text-sm text-gray-500">Loading incidents...</p>
+              ) : incidentsError ? (
+                <p className="text-sm text-red-600">{incidentsError.message}</p>
+              ) : relatedIncidents.length === 0 ? (
+                <p className="text-sm text-gray-500">No incidents for this service.</p>
+              ) : (
+                relatedIncidents.map((incident) => {
+                  const incidentId = parseIncidentNumericId(incident.id)
+                  const href = incidentId ? `/incidents/${incidentId}` : '/incidents'
 
-                return (
-                  <div
-                    key={metric.label}
-                    className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2.5"
-                  >
-                    <span className="text-sm text-gray-600">{metric.label}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-gray-900">{metric.value}</span>
-                      {metric.trend && (
-                        <TrendIcon
-                          className={cn('size-3.5', metricTrendColors[metric.trend])}
-                          aria-hidden="true"
+                  return (
+                    <Link
+                      key={incident.id}
+                      to={href}
+                      className="block rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2.5 transition-colors hover:border-gray-200 hover:bg-white"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-gray-500">
+                          {formatIncidentId(incident.id)}
+                        </span>
+                        <StatusBadge
+                          label={incidentStatusLabels[incident.status]}
+                          variant={incident.status}
+                          className="text-[10px]"
                         />
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-
-          <section className="mt-8">
-            <h4 className="text-sm font-semibold text-gray-900">Recent Health Checks</h4>
-            <div className="mt-3 space-y-3">
-              {service.healthChecks.map((check) => (
-                <div key={check.id} className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={cn('size-2.5 rounded-full', statusIndicatorStyles[check.status])}
-                    />
-                    <div className="mt-1 w-px flex-1 bg-gray-200" />
-                  </div>
-                  <div className="min-w-0 flex-1 pb-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-gray-500">{formatDateTime(check.timestamp)}</span>
-                      <StatusBadge
-                        label={serviceStatusLabels[check.status]}
-                        variant={check.status}
-                        className="text-[10px]"
-                      />
-                    </div>
-                    <p className="mt-1 text-sm text-gray-700">{check.message}</p>
-                  </div>
-                </div>
-              ))}
+                      </div>
+                      <p className="mt-1 text-sm font-medium text-gray-900">{incident.title}</p>
+                    </Link>
+                  )
+                })
+              )}
             </div>
           </section>
         </div>
 
-        <div className="border-t border-gray-100 px-5 py-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Activity className="size-4" aria-hidden="true" />
-            <span>Monitoring active · checked {formatRelativeTime(service.lastCheck)}</span>
-          </div>
-          {owner && (
-            <div className="mt-3 flex items-center gap-2">
+        {owner && (
+          <div className="border-t border-gray-100 px-5 py-4">
+            <div className="flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-full bg-pulse-100 text-xs font-semibold text-pulse-700">
                 {getInitials(owner.name)}
               </div>
@@ -187,8 +161,8 @@ export default function ServiceDetails({ service, owner, onClose }: ServiceDetai
                 <p className="text-xs text-gray-500">{owner.email}</p>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </aside>
     </>
   )

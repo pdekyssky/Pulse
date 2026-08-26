@@ -2,7 +2,7 @@
  * Service health stats and list filtering logic.
  */
 
-import type { Service, ServiceCategory, ServiceStatus } from '../types/service.ts'
+import type { Service, ServiceStatus } from '../types/service.ts'
 
 export function computeServiceStats(services: Service[]): {
   totalServices: number
@@ -34,18 +34,14 @@ export function computeServiceStats(services: Service[]): {
 
 export type ServiceFilterStatus = ServiceStatus | 'all'
 
-export type ServiceFilterCategory = ServiceCategory | 'all'
-
 export interface ServiceFilters {
   search: string
   status: ServiceFilterStatus
-  category: ServiceFilterCategory
 }
 
 export const defaultServiceFilters: ServiceFilters = {
   search: '',
   status: 'all',
-  category: 'all',
 }
 
 export function filterServices(services: Service[], filters: ServiceFilters): Service[] {
@@ -55,12 +51,10 @@ export function filterServices(services: Service[], filters: ServiceFilters): Se
     const matchesSearch =
       search.length === 0 ||
       service.name.toLowerCase().includes(search) ||
-      service.description.toLowerCase().includes(search) ||
-      service.team.toLowerCase().includes(search)
+      service.description.toLowerCase().includes(search)
 
     const matchesStatus = filters.status === 'all' || service.status === filters.status
-    const matchesCategory = filters.category === 'all' || service.category === filters.category
 
-    return matchesSearch && matchesStatus && matchesCategory
+    return matchesSearch && matchesStatus
   })
 }

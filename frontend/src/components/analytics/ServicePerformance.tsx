@@ -1,45 +1,39 @@
 /**
- * Table comparing per-service uptime and incident counts.
+ * Table of current service health and incident counts for the selected period.
  */
 
-import type { ServicePerformanceRow } from '../../types/analytics.ts'
-import type { Service } from '../../types/service.ts'
+import type { AnalyticsServiceItem } from '../../types/analytics.ts'
 import ServiceIcon from '../services/ServiceIcon.tsx'
 import ServiceStatusBadge from '../services/ServiceStatusBadge.tsx'
-import { formatResponseTime, formatUptime } from '../../lib/format.ts'
+import { formatUptime } from '../../lib/format.ts'
 import Card from '../ui/Card.tsx'
 
 interface ServicePerformanceProps {
-  rows: ServicePerformanceRow[]
-  services: Service[]
+  rows: AnalyticsServiceItem[]
 }
 
-export default function ServicePerformance({ rows, services }: ServicePerformanceProps) {
-  const getServiceStatus = (serviceId: string) =>
-    services.find((service) => service.id === serviceId)?.status ?? 'operational'
-
+export default function ServicePerformance({ rows }: ServicePerformanceProps) {
   return (
     <Card>
       <div className="border-b border-gray-100 px-5 py-4">
-        <h3 className="text-base font-semibold text-gray-900">Service Comparison</h3>
+        <h3 className="text-base font-semibold text-gray-900">Service Health</h3>
         <p className="mt-0.5 text-sm text-gray-500">
-          Services ranked by uptime, response time, and incident count.
+          Current service status and incident volume in the selected period.
         </p>
       </div>
 
       {rows.length === 0 ? (
         <div className="px-5 py-12 text-center">
-          <p className="text-sm text-gray-500">No service performance data for the selected filters.</p>
+          <p className="text-sm text-gray-500">No services match the selected filters.</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
+          <table className="w-full min-w-[560px]">
             <thead>
               <tr className="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                 <th className="px-5 py-3 font-medium">Service</th>
                 <th className="py-3 pr-4 font-medium">Status</th>
-                <th className="py-3 pr-4 font-medium">Uptime</th>
-                <th className="py-3 pr-4 font-medium">Response Time</th>
+                <th className="py-3 pr-4 font-medium">Recorded Uptime</th>
                 <th className="px-5 py-3 font-medium">Incidents</th>
               </tr>
             </thead>
@@ -55,11 +49,10 @@ export default function ServicePerformance({ rows, services }: ServicePerformanc
                     </div>
                   </td>
                   <td className="py-4 pr-4">
-                    <ServiceStatusBadge status={getServiceStatus(row.serviceId)} />
+                    <ServiceStatusBadge status={row.status} />
                   </td>
-                  <td className="py-4 pr-4 text-sm text-gray-700">{formatUptime(row.uptime)}</td>
                   <td className="py-4 pr-4 text-sm text-gray-700">
-                    {formatResponseTime(row.responseTime)}
+                    {row.uptime === null ? '—' : formatUptime(row.uptime)}
                   </td>
                   <td className="px-5 py-4 text-sm font-medium text-gray-900">{row.incidentCount}</td>
                 </tr>

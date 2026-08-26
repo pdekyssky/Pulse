@@ -3,6 +3,11 @@ import IncidentEvent from '../models/IncidentEvent.js';
 import IncidentComment from '../models/IncidentComment.js';
 import Service from '../models/Service.js';
 import User from '../models/User.js';
+import Alert from '../models/Alert.js';
+import {
+    createIncidentNotification,
+    toUserRefId
+} from './notificationController.js';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 6;
@@ -115,6 +120,67 @@ async function ensureIncidentIds(incident) {
     }
 
     return incident;
+}
+
+function parseOptionalDate(value, fieldName) {
+    if (value === undefined) {
+        return { missing: true };
+    }
+
+    if (value === null || value === '') {
+        return { value: null };
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return { error: `Invalid ${fieldName}` };
+    }
+
+    return { value: date };
+}
+
+async function findServiceByNumericId(serviceIdValue) {
+    const parsed = parseNumericId(serviceIdValue);
+
+    if (parsed.missing || parsed.error) {
+        return { error: 'Invalid service_id' };
+    }
+
+    const service = await Service.findOne({ id: parsed.id }).select('_id id');
+    if (!service) {
+        return { error: 'Service not found' };
+    }
+
+    await service.ensureNumericId();
+    return { service };
+}
+
+async function findUserByNumericId(userIdValue, fieldName) {
+    if (userIdValue === null) {
+        return { user: null };
+    }
+
+    const parsed = parseNumericId(userIdValue);
+    if (parsed.missing || parsed.error) {
+        return { error: `Invalid ${fieldName}` };
+    }
+
+    const user = await User.findOne({ id: parsed.id }).select('_id id');
+    if (!user) {
+        return { error: 'User not found' };
+    }
+
+    if (typeof user.id !== 'number') {
+        await user.ensureNumericId();
+    }
+
+    return { user };
+}
+
+async function loadPublicIncident(mongoId) {
+    const incident = await populateIncident(Incident.findById(mongoId));
+    await ensureIncidentIds(incident);
+    return toPublicIncident(incident);
 }
 
 async function buildListFilter(query) {
@@ -405,53 +471,532 @@ const getIncidentComments = async (req, res) => {
     }
 };
 
-const createIncident = async (req, res) => {
+function trimRequiredString(value) {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    return value.trim();
+}
+
+function canModifyComment(comment, user) {
+    if (user.role === 'admin') {
+        return true;
+    }
+
+    return String(comment.author?._id || comment.author) === String(user._id);
+}
+
+async function findCommentForIncident(req, res, incident) {
+    const parsed = parseNumericId(req.params.commentId);
+
+    if (parsed.missing || parsed.error) {
+        res.status(400).json({
+            message: 'Invalid comment ID'
+        });
+        return null;
+    }
+
+    const comment = await IncidentComment.findOne({
+        id: parsed.id,
+        incident: incident._id
+    }).populate({ path: 'author', select: 'id' });
+
+    if (!comment) {
+        res.status(404).json({
+            message: 'Comment not found'
+        });
+        return null;
+    }
+
+    await ensureAuthorId(comment);
+    return comment;
+}
+
+async function loadPublicEvent(eventMongoId, incidentId) {
+    const event = await IncidentEvent.findById(eventMongoId)
+        .populate({ path: 'author', select: 'id' });
+    await ensureAuthorId(event);
+    return toPublicEvent(event, incidentId);
+}
+
+async function loadPublicComment(commentMongoId, incidentId) {
+    const comment = await IncidentComment.findById(commentMongoId)
+        .populate({ path: 'author', select: 'id' });
+    await ensureAuthorId(comment);
+    return toPublicComment(comment, incidentId);
+}
+
+const createIncidentEvent = async (req, res) => {
     try {
-        const incident = await Incident.create(req.body)
-        res.status(201).json(incident);
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({
+                message: 'Unauthorized'
+            });
+        }
+
+        const incident = await findIncidentByParamId(req, res);
+        if (!incident) {
+            return;
+        }
+
+        const eventType = trimRequiredString(req.body.event_type);
+        const message = trimRequiredString(req.body.message);
+
+        if (!eventType) {
+            return res.status(400).json({
+                message: 'Event type is required'
+            });
+        }
+
+        if (!message) {
+            return res.status(400).json({
+                message: 'Message is required'
+            });
+        }
+
+        const event = await IncidentEvent.create({
+            incident: incident._id,
+            author: req.user._id,
+            eventType,
+            message
+        });
+
+        const assigneeId = toUserRefId(incident.assignedTo);
+        const authorId = toUserRefId(req.user._id);
+        if (assigneeId && assigneeId !== authorId) {
+            await createIncidentNotification({
+                recipientUserId: incident.assignedTo,
+                type: 'incident_event',
+                title: 'New investigation event',
+                message: `${req.user.name} added an event on INC-${incident.id} "${incident.title}".`,
+                incident
+            });
+        }
+
+        res.status(201).json(await loadPublicEvent(event._id, incident.id));
+    } catch (error) {
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
+        res.status(500).json({
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+
+const createIncidentComment = async (req, res) => {
+    try {
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({
+                message: 'Unauthorized'
+            });
+        }
+
+        const incident = await findIncidentByParamId(req, res);
+        if (!incident) {
+            return;
+        }
+
+        const content = trimRequiredString(req.body.content);
+        if (!content) {
+            return res.status(400).json({
+                message: 'Content is required'
+            });
+        }
+
+        const comment = await IncidentComment.create({
+            incident: incident._id,
+            author: req.user._id,
+            content
+        });
+
+        const assigneeId = toUserRefId(incident.assignedTo);
+        const authorId = toUserRefId(req.user._id);
+        if (assigneeId && assigneeId !== authorId) {
+            await createIncidentNotification({
+                recipientUserId: incident.assignedTo,
+                type: 'incident_comment',
+                title: 'New comment on incident',
+                message: `${req.user.name} commented on INC-${incident.id} "${incident.title}".`,
+                incident
+            });
+        }
+
+        res.status(201).json(await loadPublicComment(comment._id, incident.id));
+    } catch (error) {
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
+        res.status(500).json({
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+
+const updateIncidentComment = async (req, res) => {
+    try {
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({
+                message: 'Unauthorized'
+            });
+        }
+
+        const incident = await findIncidentByParamId(req, res);
+        if (!incident) {
+            return;
+        }
+
+        const comment = await findCommentForIncident(req, res, incident);
+        if (!comment) {
+            return;
+        }
+
+        if (!canModifyComment(comment, req.user)) {
+            return res.status(403).json({
+                message: 'Forbidden'
+            });
+        }
+
+        const content = trimRequiredString(req.body.content);
+        if (!content) {
+            return res.status(400).json({
+                message: 'Content is required'
+            });
+        }
+
+        comment.content = content;
+        await comment.save({ validateModifiedOnly: true });
+
+        res.status(200).json(await loadPublicComment(comment._id, incident.id));
+    } catch (error) {
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
+        res.status(500).json({
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+
+const deleteIncidentComment = async (req, res) => {
+    try {
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({
+                message: 'Unauthorized'
+            });
+        }
+
+        const incident = await findIncidentByParamId(req, res);
+        if (!incident) {
+            return;
+        }
+
+        const comment = await findCommentForIncident(req, res, incident);
+        if (!comment) {
+            return;
+        }
+
+        if (!canModifyComment(comment, req.user)) {
+            return res.status(403).json({
+                message: 'Forbidden'
+            });
+        }
+
+        await comment.deleteOne();
+
+        res.status(200).json({
+            message: 'Comment deleted successfully'
+        });
     } catch (error) {
         res.status(500).json({
             message: 'Internal server error',
             error: error.message
         });
     }
-}
+};
+
+const createIncident = async (req, res) => {
+    try {
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({
+                message: 'Unauthorized'
+            });
+        }
+
+        const { title, description, severity, service_id } = req.body;
+        const trimmedTitle = typeof title === 'string' ? title.trim() : '';
+
+        if (!trimmedTitle) {
+            return res.status(400).json({
+                message: 'Title is required'
+            });
+        }
+
+        if (description === undefined) {
+            return res.status(400).json({
+                message: 'Description is required'
+            });
+        }
+
+        if (description !== null && typeof description !== 'string') {
+            return res.status(400).json({
+                message: 'Invalid description'
+            });
+        }
+
+        if (!INCIDENT_SEVERITIES.includes(severity)) {
+            return res.status(400).json({
+                message: 'Invalid severity. Must be critical, high, medium, or low'
+            });
+        }
+
+        const serviceResult = await findServiceByNumericId(service_id);
+        if (serviceResult.error) {
+            return res.status(400).json({
+                message: serviceResult.error
+            });
+        }
+
+        const startedAtResult = parseOptionalDate(req.body.started_at, 'started_at');
+        if (startedAtResult.error) {
+            return res.status(400).json({
+                message: startedAtResult.error
+            });
+        }
+
+        const incident = await Incident.create({
+            title: trimmedTitle,
+            description: typeof description === 'string' && description.trim() ? description.trim() : null,
+            status: 'investigating',
+            severity,
+            service: serviceResult.service._id,
+            createdBy: req.user._id,
+            assignedTo: null,
+            startedAt: startedAtResult.missing || startedAtResult.value === null
+                ? new Date()
+                : startedAtResult.value,
+            resolvedAt: null
+        });
+
+        res.status(201).json(await loadPublicIncident(incident._id));
+    } catch (error) {
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
+        res.status(500).json({
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
 
 const updateIncident = async (req, res) => {
     try {
-        const incident = await Incident.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
-        .populate('service')
-        .populate('createdBy');
+        const incident = await findIncidentByParamId(req, res);
+        if (!incident) {
+            return;
+        }
 
-        res.status(200).json(incident);
+        if (Object.prototype.hasOwnProperty.call(req.body, 'created_by_id')) {
+            return res.status(400).json({
+                message: 'created_by_id cannot be changed'
+            });
+        }
+
+        const previousAssigneeId = toUserRefId(incident.assignedTo);
+        const previousStatus = incident.status;
+
+        const {
+            title,
+            description,
+            status,
+            severity,
+            service_id,
+            assigned_to_id,
+            started_at,
+            resolved_at
+        } = req.body;
+
+        if (title !== undefined) {
+            const trimmedTitle = typeof title === 'string' ? title.trim() : '';
+            if (!trimmedTitle) {
+                return res.status(400).json({
+                    message: 'Title is required'
+                });
+            }
+            incident.title = trimmedTitle;
+        }
+
+        if (description !== undefined) {
+            if (description !== null && typeof description !== 'string') {
+                return res.status(400).json({
+                    message: 'Invalid description'
+                });
+            }
+            incident.description = typeof description === 'string' && description.trim()
+                ? description.trim()
+                : null;
+        }
+
+        if (severity !== undefined && severity !== null) {
+            if (!INCIDENT_SEVERITIES.includes(severity)) {
+                return res.status(400).json({
+                    message: 'Invalid severity. Must be critical, high, medium, or low'
+                });
+            }
+            incident.severity = severity;
+        }
+
+        if (service_id !== undefined) {
+            if (service_id === null) {
+                return res.status(400).json({
+                    message: 'Invalid service_id'
+                });
+            }
+
+            const serviceResult = await findServiceByNumericId(service_id);
+            if (serviceResult.error) {
+                return res.status(400).json({
+                    message: serviceResult.error
+                });
+            }
+            incident.service = serviceResult.service._id;
+        }
+
+        if (assigned_to_id !== undefined) {
+            const userResult = await findUserByNumericId(assigned_to_id, 'assigned_to_id');
+            if (userResult.error) {
+                return res.status(400).json({
+                    message: userResult.error
+                });
+            }
+            incident.assignedTo = userResult.user ? userResult.user._id : null;
+        }
+
+        if (started_at !== undefined) {
+            const startedAtResult = parseOptionalDate(started_at, 'started_at');
+            if (startedAtResult.error) {
+                return res.status(400).json({
+                    message: startedAtResult.error
+                });
+            }
+            if (startedAtResult.value) {
+                incident.startedAt = startedAtResult.value;
+            }
+        }
+
+        if (status !== undefined && status !== null) {
+            if (!INCIDENT_STATUSES.includes(status)) {
+                return res.status(400).json({
+                    message: 'Invalid status. Must be investigating, identified, monitoring, or resolved'
+                });
+            }
+            incident.status = status;
+        }
+
+        const resolvedAtResult = parseOptionalDate(resolved_at, 'resolved_at');
+        if (resolvedAtResult.error) {
+            return res.status(400).json({
+                message: resolvedAtResult.error
+            });
+        }
+
+        if (incident.status === 'resolved') {
+            if (!resolvedAtResult.missing && resolvedAtResult.value) {
+                incident.resolvedAt = resolvedAtResult.value;
+            } else if (!incident.resolvedAt) {
+                incident.resolvedAt = new Date();
+            }
+        } else if (previousStatus === 'resolved' && incident.status !== 'resolved') {
+            incident.resolvedAt = null;
+        } else if (!resolvedAtResult.missing && resolvedAtResult.value === null) {
+            incident.resolvedAt = null;
+        } else if (!resolvedAtResult.missing && resolvedAtResult.value) {
+            incident.resolvedAt = resolvedAtResult.value;
+        }
+
+        await incident.save({ validateModifiedOnly: true });
+
+        const nextAssigneeId = toUserRefId(incident.assignedTo);
+        const actorId = toUserRefId(req.user?._id);
+        const assignmentChanged = assigned_to_id !== undefined && nextAssigneeId !== previousAssigneeId;
+        const statusChanged = incident.status !== previousStatus;
+
+        if (assignmentChanged && nextAssigneeId && nextAssigneeId !== actorId) {
+            await createIncidentNotification({
+                recipientUserId: incident.assignedTo,
+                type: 'incident_assigned',
+                title: 'Incident assigned to you',
+                message: `INC-${incident.id} "${incident.title}" was assigned to you.`,
+                incident
+            });
+        }
+
+        if (statusChanged && nextAssigneeId && nextAssigneeId !== actorId) {
+            await createIncidentNotification({
+                recipientUserId: incident.assignedTo,
+                type: 'incident_status_changed',
+                title: `Incident status changed to ${incident.status}`,
+                message: `INC-${incident.id} "${incident.title}" is now ${incident.status}.`,
+                incident
+            });
+        }
+
+        res.status(200).json(await loadPublicIncident(incident._id));
     } catch (error) {
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
         res.status(500).json({
             message: 'Internal server error',
             error: error.message
         });
     }
-}
+};
 
 const deleteIncident = async (req, res) => {
     try {
-        const incident = await Incident.findByIdAndDelete(req.params.id);
-
-        if(!incident) {
-            return res.status(404).json({
-                message: 'Incident not found'
-            });
+        const incident = await findIncidentByParamId(req, res);
+        if (!incident) {
+            return;
         }
+
+        await IncidentEvent.deleteMany({ incident: incident._id });
+        await IncidentComment.deleteMany({ incident: incident._id });
+        await Alert.updateMany(
+            { incident: incident._id },
+            { $set: { incident: null } }
+        );
+        await incident.deleteOne();
 
         res.status(200).json({
             message: 'Incident deleted successfully'
         });
-
     } catch (error) {
         res.status(500).json({
             message: 'Internal server error',
             error: error.message
         });
     }
-}
+};
 
-export { getIncidents, getIncidentById, getIncidentEvents, getIncidentComments, createIncident, updateIncident, deleteIncident };
+export { getIncidents, getIncidentById, getIncidentEvents, getIncidentComments, createIncident, updateIncident, deleteIncident, createIncidentEvent, createIncidentComment, updateIncidentComment, deleteIncidentComment };

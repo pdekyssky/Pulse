@@ -3,7 +3,16 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Copy, Eye, Mail, MoreHorizontal, Pencil, UserMinus } from 'lucide-react'
+import {
+  Copy,
+  Eye,
+  MoreHorizontal,
+  Pencil,
+  Shield,
+  Trash2,
+  UserCheck,
+  UserMinus,
+} from 'lucide-react'
 
 import type { User } from '../../types/user.ts'
 import { formatJoinDate, getInitials } from '../../lib/format.ts'
@@ -12,42 +21,32 @@ import UserRoleBadge, { UserStatusBadge } from './UserBadges.tsx'
 interface TeamRowProps {
   member: User
   readOnly?: boolean
+  isAdmin?: boolean
+  isSelf?: boolean
+  isLastAdmin?: boolean
+  isLastActiveAdmin?: boolean
   onView: (member: User) => void
   onEdit?: (member: User) => void
-  onDeactivate?: (member: User) => void
+  onToggleActive?: (member: User) => void
+  onChangeRole?: (member: User) => void
+  onDelete?: (member: User) => void
+  onCopyEmail?: (member: User) => void
 }
 
 export default function TeamRow({
   member,
   readOnly = false,
+  isAdmin = false,
+  isSelf = false,
+  isLastAdmin = false,
+  isLastActiveAdmin = false,
   onView,
   onEdit,
-  onDeactivate,
+  onToggleActive,
+  onChangeRole,
+  onDelete,
+  onCopyEmail,
 }: TeamRowProps) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!menuOpen) {
-      return
-    }
-
-    // Close the row action menu when clicking outside
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [menuOpen])
-
-  const copyEmail = async () => {
-    await navigator.clipboard.writeText(member.email)
-    setMenuOpen(false)
-  }
-
   return (
     <tr className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50">
       <td className="px-5 py-4 pr-4">
@@ -93,57 +92,17 @@ export default function TeamRow({
               <Pencil className="size-4" aria-hidden="true" />
             </button>
           )}
-          {!readOnly && onDeactivate && (
-            <div className="relative" ref={menuRef}>
-              <button
-                type="button"
-                aria-label={`More actions for ${member.name}`}
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((open) => !open)}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              >
-                <MoreHorizontal className="size-4" aria-hidden="true" />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                  <MenuButton icon={Copy} label="Copy email" onClick={copyEmail} />
-                  <MenuButton
-                    icon={Mail}
-                    label="Resend invite"
-                    onClick={() => setMenuOpen(false)}
-                    disabled={member.status !== 'invited'}
-                  />
-                  <MenuButton
-                    icon={UserMinus}
-                    label="Deactivate"
-                    onClick={() => {
-                      onDeactivate(member)
-                      setMenuOpen(false)
-                    }}
-                    disabled={member.status === 'inactive'}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-          {readOnly && (
-            <div className="relative" ref={menuRef}>
-              <button
-                type="button"
-                aria-label={`More actions for ${member.name}`}
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((open) => !open)}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              >
-                <MoreHorizontal className="size-4" aria-hidden="true" />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                  <MenuButton icon={Copy} label="Copy email" onClick={copyEmail} />
-                </div>
-              )}
-            </div>
-          )}
+          <MemberActionMenu
+            member={member}
+            isAdmin={isAdmin}
+            isSelf={isSelf}
+            isLastAdmin={isLastAdmin}
+            isLastActiveAdmin={isLastActiveAdmin}
+            onToggleActive={onToggleActive}
+            onChangeRole={onChangeRole}
+            onDelete={onDelete}
+            onCopyEmail={onCopyEmail}
+          />
         </div>
       </td>
     </tr>
@@ -153,9 +112,16 @@ export default function TeamRow({
 export function TeamMobileCard({
   member,
   readOnly = false,
+  isAdmin = false,
+  isSelf = false,
+  isLastAdmin = false,
+  isLastActiveAdmin = false,
   onView,
   onEdit,
-  onDeactivate,
+  onToggleActive,
+  onChangeRole,
+  onDelete,
+  onCopyEmail,
 }: TeamRowProps) {
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
@@ -169,11 +135,24 @@ export function TeamMobileCard({
             <p className="text-xs text-gray-500">{member.email}</p>
           </div>
         </div>
-        <UserStatusBadge status={member.status} />
+        <div className="flex items-center gap-1">
+          <UserStatusBadge status={member.status} />
+          <MemberActionMenu
+            member={member}
+            isAdmin={isAdmin}
+            isSelf={isSelf}
+            isLastAdmin={isLastAdmin}
+            isLastActiveAdmin={isLastActiveAdmin}
+            onToggleActive={onToggleActive}
+            onChangeRole={onChangeRole}
+            onDelete={onDelete}
+            onCopyEmail={onCopyEmail}
+          />
+        </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <UserRoleBadge role={member.role} />
-        <span className="text-xs text-gray-500">Joined {formatJoinDate(member.joinedAt)}</span>
+        <span className="text-xs text-gray-500">Created {formatJoinDate(member.joinedAt)}</span>
       </div>
       <div className="mt-3 flex gap-2">
         <button
@@ -194,16 +173,127 @@ export function TeamMobileCard({
             Edit
           </button>
         )}
-        {!readOnly && onDeactivate && member.status !== 'inactive' && (
-          <button
-            type="button"
-            onClick={() => onDeactivate(member)}
-            className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
-          >
-            <UserMinus className="size-3.5" aria-hidden="true" />
-          </button>
-        )}
       </div>
+    </div>
+  )
+}
+
+function MemberActionMenu({
+  member,
+  isAdmin,
+  isSelf,
+  isLastAdmin,
+  isLastActiveAdmin,
+  onToggleActive,
+  onChangeRole,
+  onDelete,
+  onCopyEmail,
+}: {
+  member: User
+  isAdmin: boolean
+  isSelf: boolean
+  isLastAdmin: boolean
+  isLastActiveAdmin: boolean
+  onToggleActive?: (member: User) => void
+  onChangeRole?: (member: User) => void
+  onDelete?: (member: User) => void
+  onCopyEmail?: (member: User) => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const isActive = member.status === 'active'
+  const cannotChangeStatus = (isSelf && isActive) || (isLastActiveAdmin && isActive)
+  const cannotChangeRole = isSelf || isLastAdmin
+  const cannotDelete = isSelf || isLastAdmin
+
+  const statusDisabledReason = isSelf
+    ? 'You cannot deactivate your own account'
+    : isLastActiveAdmin
+      ? 'At least one active admin is required'
+      : undefined
+  const roleDisabledReason = isSelf
+    ? 'You cannot change your own admin role'
+    : isLastAdmin
+      ? 'At least one admin is required'
+      : undefined
+  const deleteDisabledReason = isSelf
+    ? 'You cannot delete your own account'
+    : isLastAdmin
+      ? 'At least one admin is required'
+      : undefined
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [menuOpen])
+
+  const copyEmail = async () => {
+    await navigator.clipboard.writeText(member.email)
+    onCopyEmail?.(member)
+    setMenuOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        aria-label={`More actions for ${member.name}`}
+        aria-expanded={menuOpen}
+        onClick={() => setMenuOpen((open) => !open)}
+        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+      >
+        <MoreHorizontal className="size-4" aria-hidden="true" />
+      </button>
+      {menuOpen && (
+        <div className="absolute right-0 z-10 mt-1 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+          <MenuButton icon={Copy} label="Copy email" onClick={copyEmail} />
+          {isAdmin && (
+            <>
+              <MenuButton
+                icon={isActive ? UserMinus : UserCheck}
+                label={isActive ? 'Deactivate user' : 'Activate user'}
+                disabled={cannotChangeStatus}
+                title={cannotChangeStatus ? statusDisabledReason : undefined}
+                onClick={() => {
+                  onToggleActive?.(member)
+                  setMenuOpen(false)
+                }}
+              />
+              <MenuButton
+                icon={Shield}
+                label="Change role"
+                disabled={cannotChangeRole}
+                title={cannotChangeRole ? roleDisabledReason : undefined}
+                onClick={() => {
+                  onChangeRole?.(member)
+                  setMenuOpen(false)
+                }}
+              />
+              <MenuButton
+                icon={Trash2}
+                label="Delete user"
+                destructive
+                disabled={cannotDelete}
+                title={cannotDelete ? deleteDisabledReason : undefined}
+                onClick={() => {
+                  onDelete?.(member)
+                  setMenuOpen(false)
+                }}
+              />
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -213,18 +303,27 @@ function MenuButton({
   label,
   onClick,
   disabled,
+  destructive,
+  title,
 }: {
   icon: typeof Copy
   label: string
   onClick: () => void
   disabled?: boolean
+  destructive?: boolean
+  title?: string
 }) {
   return (
     <button
       type="button"
       disabled={disabled}
+      title={title}
       onClick={onClick}
-      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+      className={
+        destructive
+          ? 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40'
+          : 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40'
+      }
     >
       <Icon className="size-3.5" aria-hidden="true" />
       {label}

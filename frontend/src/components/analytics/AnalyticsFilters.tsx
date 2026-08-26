@@ -1,10 +1,10 @@
 /**
- * Filter bar for metric type and service scope.
+ * Filter bar for analytics service scope.
  */
 
 import { ChevronDown, RotateCcw } from 'lucide-react'
 
-import type { AnalyticsFilters, AnalyticsMetric } from '../../types/analytics.ts'
+import type { AnalyticsFilters } from '../../types/analytics.ts'
 import type { Service } from '../../types/service.ts'
 import { defaultAnalyticsFilters } from '../../lib/analytics-stats.ts'
 
@@ -14,19 +14,12 @@ interface AnalyticsFiltersBarProps {
   onChange: (filters: AnalyticsFilters) => void
 }
 
-const metricOptions: Array<{ value: AnalyticsMetric; label: string }> = [
-  { value: 'all', label: 'All Metrics' },
-  { value: 'uptime', label: 'Uptime' },
-  { value: 'incidents', label: 'Incidents' },
-  { value: 'responseTime', label: 'Response Time' },
-]
-
 export default function AnalyticsFiltersBar({
   filters,
   services,
   onChange,
 }: AnalyticsFiltersBarProps) {
-  const hasActiveFilters = filters.serviceId !== 'all' || filters.metric !== 'all'
+  const hasActiveFilters = filters.serviceId !== 'all'
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -38,16 +31,11 @@ export default function AnalyticsFiltersBar({
         ]}
         onChange={(serviceId) => onChange({ ...filters, serviceId })}
       />
-      <FilterSelect
-        value={filters.metric}
-        options={metricOptions}
-        onChange={(metric) => onChange({ ...filters, metric })}
-      />
 
       {hasActiveFilters && (
         <button
           type="button"
-          onClick={() => onChange({ ...filters, ...defaultAnalyticsFilters, dateRange: filters.dateRange })}
+          onClick={() => onChange({ ...filters, serviceId: defaultAnalyticsFilters.serviceId })}
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
         >
           <RotateCcw className="size-3.5" aria-hidden="true" />

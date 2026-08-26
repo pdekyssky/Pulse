@@ -7,16 +7,12 @@ import type { ReactNode } from 'react'
 import { z } from 'zod'
 import { X } from 'lucide-react'
 
-import type { ServiceFormInput } from '../../types/service.ts'
+import type { ServiceFormInput, ServiceStatus } from '../../types/service.ts'
 import type { User } from '../../types/user.ts'
-import {
-  serviceCategoryLabels,
-  serviceEnvironmentLabels,
-} from '../../types/service.ts'
 import { serviceStatusLabels } from '../../lib/overview-stats.ts'
 import { cn } from '../../lib/utils.ts'
 
-const uptimeRequiredSchema = z
+const uptimeSchema = z
   .number({ message: 'Enter a valid uptime percentage' })
   .refine((value) => !Number.isNaN(value), 'Uptime is required')
   .min(0, 'Uptime must be at least 0')
@@ -26,35 +22,12 @@ const uptimeRequiredSchema = z
     'Uptime allows at most 2 decimal places',
   )
 
-const uptimeOptionalSchema = z
-  .number({ message: 'Enter a valid uptime percentage' })
-  .refine((value) => Number.isNaN(value) || value >= 0, 'Uptime must be at least 0')
-  .refine(
-    (value) => Number.isNaN(value) || value <= 999.99,
-    'Uptime must be at most 999.99',
-  )
-  .refine(
-    (value) => Number.isNaN(value) || Math.round(value * 100) / 100 === value,
-    'Uptime allows at most 2 decimal places',
-  )
-  .optional()
-
-const serviceFormBaseSchema = z.object({
+const serviceFormSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  description: z.string().min(10, 'Description must be at least 10 characters'),
+  description: z.string(),
   ownerId: z.string().min(1, 'Select an owner'),
   status: z.enum(['operational', 'degraded', 'down']),
-  category: z.enum(['application', 'infrastructure', 'platform']),
-  environment: z.enum(['production', 'staging', 'development']),
-  team: z.string(),
-})
-
-const createFormSchema = serviceFormBaseSchema.extend({
-  uptime: uptimeRequiredSchema,
-})
-
-const editFormSchema = serviceFormBaseSchema.extend({
-  uptime: uptimeOptionalSchema,
+  uptime: uptimeSchema,
 })
 
 interface ServiceFormDialogProps {
@@ -72,9 +45,6 @@ const defaultValues: ServiceFormInput = {
   name: '',
   description: '',
   status: 'operational',
-  category: 'application',
-  environment: 'production',
-  team: '',
   ownerId: '',
 }
 
@@ -103,11 +73,7 @@ export default function ServiceFormDialog({
   }
 
   const submit = handleSubmit(async (data) => {
-    const parsed =
-      mode === 'create'
-        ? createFormSchema.safeParse(data)
-        : editFormSchema.safeParse(data)
-
+    const parsed = serviceFormSchema.safeParse(data)
     if (!parsed.success) {
       parsed.error.issues.forEach((issue) => {
         const field = issue.path[0] as keyof ServiceFormInput
@@ -116,25 +82,14 @@ export default function ServiceFormDialog({
       return
     }
 
-    const formInput: ServiceFormInput = {
-      ...parsed.data,
-      uptime:
-        parsed.data.uptime !== undefined && !Number.isNaN(parsed.data.uptime)
-          ? parsed.data.uptime
-          : undefined,
-    }
-
-    await onSubmit(formInput)
+    await onSubmit(parsed.data)
   })
 
   const title = mode === 'create' ? 'Create Service' : 'Edit Service'
   const submitLabel = mode === 'create' ? 'Create Service' : 'Save Changes'
   const pending = isSubmitting || isPending
   const pendingLabel = mode === 'create' ? 'Creating...' : 'Saving...'
-  const displayValues = initialValues ?? defaultValues
-  const uptimeUnavailable =
-    mode === 'edit' &&
-    (displayValues.uptime === undefined || Number.isNaN(displayValues.uptime))
+  const assignableUsers = users.filter((user) => user.status !== 'inactive')
 
   return (
     <>
@@ -170,6 +125,7 @@ export default function ServiceFormDialog({
             <FormField label="Name" error={errors.name?.message}>
               <input
                 {...register('name')}
+                disabled={pending}
                 className={inputClassName(!!errors.name)}
                 placeholder="e.g. API Gateway"
               />
@@ -179,68 +135,51 @@ export default function ServiceFormDialog({
               <textarea
                 {...register('description')}
                 rows={3}
+                disabled={pending}
                 className={cn(inputClassName(!!errors.description), 'resize-none')}
-                placeholder="Describe what this service does..."
+                placeholder="Describe what this service does (optional)"
               />
+            </FormField>
+
+            <FormField label="Status" error={errors.status?.message}>
+              <select
+                {...register('status')}
+                disabled={pending}
+                className={inputClassName(!!errors.status)}
+              >
+                {(Object.keys(serviceStatusLabels) as ServiceStatus[]).map((status) => (
+                  <option key={status} value={status}>
+                    {serviceStatusLabels[status]}
+                  </option>
+                ))}
+              </select>
             </FormField>
 
             <FormField
               label="Uptime (%)"
               error={errors.uptime?.message}
-              hint="Percentage with up to 2 decimal places (0–999.99)."
+              hint="Stored uptime value (0–999.99). This is not live telemetry."
             >
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 max="999.99"
+                disabled={pending}
                 {...register('uptime', { valueAsNumber: true })}
                 className={inputClassName(!!errors.uptime)}
-                placeholder={uptimeUnavailable ? 'Not available' : 'e.g. 99.95'}
+                placeholder="e.g. 99.95"
               />
             </FormField>
 
-            {mode === 'create' && (
-              <>
-                <input type="hidden" {...register('status')} />
-                <input type="hidden" {...register('category')} />
-                <input type="hidden" {...register('environment')} />
-                <input type="hidden" {...register('team')} />
-              </>
-            )}
-
-            {mode === 'edit' && (
-              <>
-                <input type="hidden" {...register('status')} />
-                <input type="hidden" {...register('category')} />
-                <input type="hidden" {...register('environment')} />
-                <input type="hidden" {...register('team')} />
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <ReadOnlyField
-                    label="Status"
-                    value={serviceStatusLabels[displayValues.status]}
-                  />
-                  <ReadOnlyField
-                    label="Category"
-                    value={serviceCategoryLabels[displayValues.category]}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <ReadOnlyField
-                    label="Environment"
-                    value={serviceEnvironmentLabels[displayValues.environment]}
-                  />
-                  <ReadOnlyField label="Team" value={displayValues.team || '—'} />
-                </div>
-              </>
-            )}
-
             <FormField label="Owner" error={errors.ownerId?.message}>
-              <select {...register('ownerId')} className={inputClassName(!!errors.ownerId)}>
+              <select
+                {...register('ownerId')}
+                disabled={pending}
+                className={inputClassName(!!errors.ownerId)}
+              >
                 <option value="">Select an owner</option>
-                {users.map((user) => (
+                {assignableUsers.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.name}
                   </option>
@@ -299,20 +238,9 @@ function FormField({
   )
 }
 
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
-      <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
-        {value}
-      </p>
-    </div>
-  )
-}
-
 function inputClassName(hasError: boolean) {
   return cn(
-    'w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:ring-2 focus:outline-none',
+    'w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:opacity-50',
     hasError
       ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
       : 'border-gray-200 focus:border-pulse-500 focus:ring-pulse-500/20',

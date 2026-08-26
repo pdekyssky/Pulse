@@ -1,4 +1,4 @@
-import Incident from '../models/Incidents.js';
+import Incident, { INCIDENT_STATUSES, INCIDENT_SEVERITIES } from '../models/Incidents.js';
 import Service from '../models/Service.js';
 import Alert from '../models/Alert.js';
 import User from '../models/User.js';
@@ -767,4 +767,179 @@ const getReportById = async (req, res) => {
     }
 };
 
-export { listReports, getReportById };
+function parseNumericId(value) {
+    if (value === undefined || value === null || value === '') {
+        return { missing: true };
+    }
+
+    if (!/^\d+$/.test(String(value).trim())) {
+        return { error: true };
+    }
+
+    const id = Number(value);
+    if (!Number.isInteger(id) || id < 1) {
+        return { error: true };
+    }
+
+    return { id };
+}
+
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function numericRefId(doc) {
+    if (doc && typeof doc === 'object' && typeof doc.id === 'number') {
+        return doc.id;
+    }
+
+    return null;
+}
+
+const listIncidentReports = async (req, res) => {
+    try {
+        const pageResult = parsePositiveInt(req.query.page, DEFAULT_PAGE);
+        const pageSizeResult = parsePositiveInt(req.query.page_size, DEFAULT_PAGE_SIZE);
+
+        if (pageResult.error) {
+            return res.status(400).json({ message: 'Invalid page' });
+        }
+
+        if (pageSizeResult.error) {
+            return res.status(400).json({ message: 'Invalid page_size' });
+        }
+
+        if (req.query.status !== undefined && req.query.status !== '' && !INCIDENT_STATUSES.includes(req.query.status)) {
+            return res.status(400).json({ message: 'Invalid status' });
+        }
+
+        if (req.query.severity !== undefined && req.query.severity !== '' && !INCIDENT_SEVERITIES.includes(req.query.severity)) {
+            return res.status(400).json({ message: 'Invalid severity' });
+        }
+
+        if (req.query.period !== undefined && req.query.period !== '' && !REPORT_PERIODS.includes(req.query.period)) {
+            return res.status(400).json({ message: 'Invalid period' });
+        }
+
+        const filter = {};
+
+        if (req.query.status) {
+            filter.status = req.query.status;
+        }
+
+        if (req.query.severity) {
+            filter.severity = req.query.severity;
+        }
+
+        if (req.query.service_id !== undefined && req.query.service_id !== '') {
+            const parsed = parseNumericId(req.query.service_id);
+            if (parsed.missing || parsed.error) {
+                return res.status(400).json({ message: 'Invalid service_id' });
+            }
+
+            const service = await Service.findOne({ id: parsed.id }).select('_id');
+            if (!service) {
+                return res.status(200).json({
+                    items: [],
+                    page: pageResult.value,
+                    page_size: pageSizeResult.value,
+                    total: 0,
+                    total_pages: 0,
+                    stats: { total: 0, open: 0, resolved: 0 }
+                });
+            }
+            filter.service = service._id;
+        }
+
+        if (req.query.period && req.query.period !== 'all') {
+            const periodDays = REPORT_PERIOD_DAYS[req.query.period];
+            const { rangeStart } = periodBounds(periodDays);
+            filter.createdAt = { $gte: rangeStart };
+        }
+
+        if (req.query.search !== undefined && String(req.query.search).trim().length > 0) {
+            const search = String(req.query.search).trim();
+            const incMatch = search.match(/^inc-(\d+)$/i);
+            const searchClauses = [];
+
+            if (incMatch) {
+                searchClauses.push({ id: Number(incMatch[1]) });
+            } else if (/^\d+$/.test(search)) {
+                searchClauses.push({ id: Number(search) });
+            }
+
+            const regex = new RegExp(escapeRegex(search), 'i');
+            searchClauses.push({ title: regex });
+            filter.$or = searchClauses;
+        }
+
+        const page = pageResult.value;
+        const pageSize = pageSizeResult.value;
+        const total = await Incident.countDocuments(filter);
+        const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
+        const skip = (page - 1) * pageSize;
+
+        let open;
+        let resolved;
+        if (filter.status === 'resolved') {
+            open = 0;
+            resolved = total;
+        } else if (filter.status) {
+            open = total;
+            resolved = 0;
+        } else {
+            [open, resolved] = await Promise.all([
+                Incident.countDocuments({ ...filter, status: { $ne: 'resolved' } }),
+                Incident.countDocuments({ ...filter, status: 'resolved' })
+            ]);
+        }
+
+        const incidents = await Incident.find(filter)
+            .sort({ createdAt: -1, id: -1 })
+            .skip(skip)
+            .limit(pageSize)
+            .populate({ path: 'service', select: 'id name' })
+            .populate({ path: 'assignedTo', select: 'id name' });
+
+        for (const incident of incidents) {
+            await incident.ensureNumericId();
+            if (incident.service && typeof incident.service.ensureNumericId === 'function') {
+                await incident.service.ensureNumericId();
+            }
+            if (incident.assignedTo && typeof incident.assignedTo.ensureNumericId === 'function') {
+                await incident.assignedTo.ensureNumericId();
+            }
+        }
+
+        res.status(200).json({
+            items: incidents.map((incident) => ({
+                id: incident.id,
+                title: incident.title,
+                severity: incident.severity,
+                status: incident.status,
+                service_id: numericRefId(incident.service),
+                service_name: incident.service?.name ?? null,
+                assigned_to_id: numericRefId(incident.assignedTo),
+                assigned_to_name: incident.assignedTo?.name ?? null,
+                created_at: toIso(incident.createdAt),
+                resolved_at: toIso(incident.resolvedAt)
+            })),
+            page,
+            page_size: pageSize,
+            total,
+            total_pages: totalPages,
+            stats: {
+                total,
+                open,
+                resolved
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+
+export { listReports, getReportById, listIncidentReports };

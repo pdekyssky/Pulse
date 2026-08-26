@@ -14,9 +14,7 @@ export function mapDashboardOverviewToStats(
   const totalServices = overview.services.total
   const operational = overview.services_by_status.operational ?? 0
   const degraded = overview.services_by_status.degraded ?? 0
-  const down =
-    (overview.services_by_status.partial_outage ?? 0) +
-    (overview.services_by_status.major_outage ?? 0)
+  const down = overview.services_by_status.down ?? 0
 
   return {
     totalServices,
@@ -56,6 +54,10 @@ export function mapRecentIncidentToIncident(
     startedAt: incident.started_at,
     duration: formatIncidentDuration(incident.started_at, incident.resolved_at),
     assigneeId: incident.assigned_to_id ? String(incident.assigned_to_id) : '',
+    createdById: incident.created_by_id ? String(incident.created_by_id) : '',
+    createdAt: incident.created_at,
+    updatedAt: incident.updated_at,
+    resolvedAt: incident.resolved_at,
     affectedServiceIds: [String(incident.service_id)],
     timeline: [],
     logs: [],

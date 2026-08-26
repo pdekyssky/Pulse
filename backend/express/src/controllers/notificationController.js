@@ -1,5 +1,52 @@
 import Notification from '../models/Notification.js';
 
+function toUserRefId(value) {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === 'object' && value._id) {
+        return String(value._id);
+    }
+
+    return String(value);
+}
+
+/**
+ * Create an in-app notification for an identified user.
+ * Failures are logged and do not throw, so the originating mutation still succeeds.
+ */
+async function createIncidentNotification({
+    recipientUserId,
+    type,
+    title,
+    message,
+    incident
+}) {
+    const userId = toUserRefId(recipientUserId);
+    if (!userId) {
+        return null;
+    }
+
+    if (!incident || !incident._id) {
+        return null;
+    }
+
+    try {
+        return await Notification.create({
+            user: userId,
+            type,
+            title,
+            message,
+            incident: incident._id,
+            isRead: false
+        });
+    } catch (error) {
+        console.error('Failed to create incident notification', error);
+        return null;
+    }
+}
+
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 6;
 
@@ -232,5 +279,7 @@ const markAllNotificationsRead = async (req, res) => {
 export {
     getNotifications,
     markNotificationRead,
-    markAllNotificationsRead
+    markAllNotificationsRead,
+    createIncidentNotification,
+    toUserRefId
 };

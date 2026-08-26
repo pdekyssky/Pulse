@@ -2,10 +2,11 @@
  * Dark navigation sidebar with active route highlighting.
  */
 
-import { Activity, ChevronUp, LogOut, User } from 'lucide-react'
+import { Activity, LogOut, User } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../../hooks/useAuth.ts'
+import { useUnreadNotificationCount } from '../../hooks/useNotificationsQuery.ts'
 import { navItems } from '../../lib/navigation.ts'
 import { cn } from '../../lib/utils.ts'
 import { authRoleLabels } from '../../types/auth.ts'
@@ -18,6 +19,7 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { count: unreadCount } = useUnreadNotificationCount()
 
   const handleLogout = async () => {
     await logout()
@@ -64,8 +66,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 )
               }
             >
-              <Icon className="size-5 shrink-0" aria-hidden="true" />
-              {label}
+              {({ isActive }) => (
+                <>
+                  <Icon className="size-5 shrink-0" aria-hidden="true" />
+                  <span className="flex-1">{label}</span>
+                  {path === '/notifications' && unreadCount > 0 && (
+                    <span
+                      className={cn(
+                        'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
+                        isActive ? 'bg-white/20 text-white' : 'bg-pulse-600 text-white',
+                      )}
+                    >
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -81,7 +97,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {user ? authRoleLabels[user.role] : 'Signed in'}
               </p>
             </div>
-            <ChevronUp className="size-4 shrink-0 text-sidebar-muted" aria-hidden="true" />
           </div>
           <button
             type="button"

@@ -13,9 +13,8 @@ interface UserRoleBadgeProps {
 
 const roleStyles: Record<UserRole, string> = {
   admin: 'bg-purple-50 text-purple-700 ring-purple-600/20',
-  engineer: 'bg-blue-50 text-blue-700 ring-blue-600/20',
-  responder: 'bg-orange-50 text-orange-700 ring-orange-600/20',
-  viewer: 'bg-gray-100 text-gray-600 ring-gray-500/20',
+  manager: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
+  user: 'bg-slate-100 text-slate-700 ring-slate-500/20',
 }
 
 export default function UserRoleBadge({ role, className }: UserRoleBadgeProps) {
@@ -40,7 +39,6 @@ interface UserStatusBadgeProps {
 const statusStyles: Record<UserStatus, string> = {
   active: 'bg-green-50 text-green-700 ring-green-600/20',
   inactive: 'bg-gray-100 text-gray-600 ring-gray-500/20',
-  invited: 'bg-purple-50 text-purple-700 ring-purple-600/20',
 }
 
 export function UserStatusBadge({ status, className }: UserStatusBadgeProps) {

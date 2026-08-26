@@ -1,44 +1,40 @@
 /**
- * Operational reports page with API-backed read-only list and filters.
+ * Incident report page backed by GET /reports/incidents.
  */
 
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 
 import QueryState from '../components/common/QueryState.tsx'
-import ReportDetails from '../components/reports/ReportDetails.tsx'
 import ReportFilters from '../components/reports/ReportFilters.tsx'
 import ReportPagination from '../components/reports/ReportPagination.tsx'
 import ReportsHeader from '../components/reports/ReportsHeader.tsx'
 import ReportStats from '../components/reports/ReportStats.tsx'
 import ReportsTable from '../components/reports/ReportsTable.tsx'
-import { useReportsList } from '../hooks/useReportsQuery.ts'
-import { queryKeys } from '../lib/api/query-keys.ts'
-import { fetchUsers } from '../lib/api/users.ts'
-import { mapApiUserToTeamUser } from '../lib/mappers/service.ts'
-import { buildReportListParams } from '../lib/mappers/report.ts'
-import { downloadReportJson } from '../lib/report-utils.ts'
+import { useIncidentReportsList } from '../hooks/useReportsQuery.ts'
+import { useServices } from '../hooks/useServices.ts'
+import { buildIncidentReportListParams } from '../lib/mappers/report.ts'
 import {
-  defaultReportFilters,
-  type ReportFilters as ReportFiltersState,
-  type ReportStatsSummary,
+  defaultIncidentReportFilters,
+  type IncidentReportFilters,
+  type IncidentReportStats,
 } from '../lib/report-stats.ts'
+import { downloadIncidentReportCsv, downloadIncidentReportJson } from '../lib/report-utils.ts'
 
-const emptyStats: ReportStatsSummary = {
+const emptyStats: IncidentReportStats = {
   total: 0,
-  incidentReports: 0,
-  serviceReports: 0,
-  scheduled: 0,
+  open: 0,
+  resolved: 0,
 }
 
 export default function ReportsPage() {
-  const [filters, setFilters] = useState<ReportFiltersState>(defaultReportFilters)
+  const navigate = useNavigate()
+  const [filters, setFilters] = useState<IncidentReportFilters>(defaultIncidentReportFilters)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(6)
-  const [viewingReportId, setViewingReportId] = useState<string | null>(null)
 
   const listParams = useMemo(
-    () => buildReportListParams(filters, page, pageSize),
+    () => buildIncidentReportListParams(filters, page, pageSize),
     [filters, page, pageSize],
   )
 
@@ -46,52 +42,41 @@ export default function ReportsPage() {
     data: reportsData,
     isLoading: isReportsLoading,
     error: reportsError,
-  } = useReportsList(listParams)
-  const {
-    data: users = [],
-    isLoading: isUsersLoading,
-    error: usersError,
-  } = useQuery({
-    queryKey: queryKeys.users,
-    queryFn: async () => {
-      const response = await fetchUsers()
-      return response.map(mapApiUserToTeamUser)
-    },
-  })
+  } = useIncidentReportsList(listParams)
+  const { data: services = [], isLoading: isServicesLoading, error: servicesError } = useServices()
 
   const reports = reportsData?.items ?? []
   const stats = reportsData?.stats ?? emptyStats
 
-  const viewingReport = useMemo(
-    () => reports.find((report) => report.id === viewingReportId) ?? null,
-    [reports, viewingReportId],
-  )
-
-  const viewingAuthor = users.find((user) => user.id === viewingReport?.generatedById)
-
-  const handleFiltersChange = (nextFilters: ReportFiltersState) => {
+  const handleFiltersChange = (nextFilters: IncidentReportFilters) => {
     setFilters(nextFilters)
     setPage(1)
   }
 
   const isLoading =
     (isReportsLoading && reportsData === undefined) ||
-    (isUsersLoading && users.length === 0)
-  const error = reportsError ?? usersError
+    (isServicesLoading && services.length === 0)
+  const error = reportsError ?? servicesError
 
   return (
-    <QueryState isLoading={isLoading} error={error} loadingMessage="Loading reports...">
+    <QueryState
+      isLoading={isLoading}
+      error={error}
+      loadingMessage="Loading reports..."
+      errorTitle="Unable to load reports"
+    >
       <div className="space-y-6">
-        <ReportsHeader readOnly />
+        <ReportsHeader
+          onExportJson={() => downloadIncidentReportJson(reports)}
+          onExportCsv={() => downloadIncidentReportCsv(reports)}
+          disableExport={reports.length === 0}
+        />
         <ReportStats stats={stats} />
-        <ReportFilters filters={filters} onChange={handleFiltersChange} />
+        <ReportFilters filters={filters} services={services} onChange={handleFiltersChange} />
         <ReportsTable
           reports={reports}
           totalCount={reportsData?.total ?? 0}
-          users={users}
-          readOnly
-          onView={(report) => setViewingReportId(report.id)}
-          onDownload={downloadReportJson}
+          onView={(report) => navigate(`/incidents/${report.id}`)}
         />
         <ReportPagination
           page={reportsData?.page ?? page}
@@ -104,13 +89,6 @@ export default function ReportsPage() {
                 : current,
             )
           }
-        />
-
-        <ReportDetails
-          report={viewingReport}
-          author={viewingAuthor}
-          onClose={() => setViewingReportId(null)}
-          onDownload={downloadReportJson}
         />
       </div>
     </QueryState>

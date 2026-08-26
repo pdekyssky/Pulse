@@ -2,11 +2,8 @@
  * TypeScript types for analytics filters, KPIs, and chart data.
  */
 
-export interface UptimeDataPoint {
-  date: string
-  label: string
-  uptime: number
-}
+import type { IncidentPriority, IncidentStatus } from './incident.ts'
+import type { ServiceStatus } from './service.ts'
 
 export interface IncidentTrendDataPoint {
   date: string
@@ -16,39 +13,48 @@ export interface IncidentTrendDataPoint {
   resolved: number
 }
 
-export interface ResponseTimeDataPoint {
-  date: string
-  label: string
-  responseTime: number
+export interface AnalyticsIncidentCounts {
+  total: number
+  open: number
+  resolved: number
+  bySeverity: Record<IncidentPriority, number>
+  byStatus: Record<IncidentStatus, number>
+  byService: Array<{
+    serviceId: number | null
+    serviceName: string
+    count: number
+  }>
 }
 
-export interface ServicePerformanceRow {
+export interface AnalyticsServiceItem {
   serviceId: string
   serviceName: string
-  uptime: number
-  responseTime: number
+  status: ServiceStatus
+  uptime: number | null
   incidentCount: number
 }
 
-export interface AnalyticsKpis {
-  overallUptime: string
-  averageResponseTime: string
-  totalIncidents: number
-  mttr: string
-  alertVolume: number
+export interface AnalyticsServiceCounts {
+  total: number
+  operational: number
+  degraded: number
+  down: number
+  items: AnalyticsServiceItem[]
+}
+
+export interface AnalyticsOverview {
+  dateRange: AnalyticsDateRange
+  serviceId: string | null
+  incidents: AnalyticsIncidentCounts
+  services: AnalyticsServiceCounts
+  averageResolutionSeconds: number | null
+  resolvedSampleSize: number
+  incidentTrend: IncidentTrendDataPoint[]
 }
 
 export type AnalyticsDateRange = '7d' | '14d' | '30d'
 
-export type AnalyticsMetric = 'all' | 'uptime' | 'incidents' | 'responseTime'
-
 export interface AnalyticsFilters {
   dateRange: AnalyticsDateRange
   serviceId: string
-  metric: AnalyticsMetric
-}
-
-export interface ServiceUptimeSeries {
-  serviceId: string
-  data: UptimeDataPoint[]
 }

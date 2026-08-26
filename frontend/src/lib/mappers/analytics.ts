@@ -1,52 +1,56 @@
-import type { AnalyticsFilters } from '../../types/analytics.ts'
 import type {
-  AnalyticsKpis,
+  AnalyticsFilters,
+  AnalyticsOverview,
   IncidentTrendDataPoint,
-  ResponseTimeDataPoint,
-  ServicePerformanceRow,
-  UptimeDataPoint,
 } from '../../types/analytics.ts'
 import type {
   AnalyticsOverviewParams,
   ApiAnalyticsOverviewResponse,
 } from '../../types/api/analytics.ts'
 
-export interface AnalyticsOverviewData {
-  dateRange: AnalyticsFilters['dateRange']
-  serviceId: string | null
-  kpis: AnalyticsKpis
-  uptimeSeries: UptimeDataPoint[]
-  incidentTrend: IncidentTrendDataPoint[]
-  responseTimeSeries: ResponseTimeDataPoint[]
-  servicePerformance: ServicePerformanceRow[]
-}
-
-/** Map backend analytics overview to the existing UI data shape. */
-export function mapApiAnalyticsOverview(response: ApiAnalyticsOverviewResponse): AnalyticsOverviewData {
+/** Map backend analytics overview to the UI data shape. */
+export function mapApiAnalyticsOverview(
+  response: ApiAnalyticsOverviewResponse,
+): AnalyticsOverview {
   return {
     dateRange: response.date_range,
     serviceId: response.service_id !== null ? String(response.service_id) : null,
-    kpis: {
-      overallUptime: response.kpis.overall_uptime,
-      averageResponseTime: response.kpis.average_response_time,
-      totalIncidents: response.kpis.total_incidents,
-      mttr: response.kpis.mttr,
-      alertVolume: response.kpis.alert_volume,
+    incidents: {
+      total: response.incidents.total,
+      open: response.incidents.open,
+      resolved: response.incidents.resolved,
+      bySeverity: response.incidents.by_severity,
+      byStatus: response.incidents.by_status,
+      byService: response.incidents.by_service.map((row) => ({
+        serviceId: row.service_id,
+        serviceName: row.service_name,
+        count: row.count,
+      })),
     },
-    uptimeSeries: response.uptime_series,
-    incidentTrend: response.incident_trend,
-    responseTimeSeries: response.response_time_series.map((point) => ({
-      date: point.date,
-      label: point.label,
-      responseTime: point.response_time,
-    })),
-    servicePerformance: response.service_performance.map((row) => ({
-      serviceId: String(row.service_id),
-      serviceName: row.service_name,
-      uptime: row.uptime,
-      responseTime: row.response_time,
-      incidentCount: row.incident_count,
-    })),
+    services: {
+      total: response.services.total,
+      operational: response.services.operational,
+      degraded: response.services.degraded,
+      down: response.services.down,
+      items: response.services.items.map((item) => ({
+        serviceId: String(item.service_id),
+        serviceName: item.service_name,
+        status: item.status,
+        uptime: item.uptime,
+        incidentCount: item.incident_count,
+      })),
+    },
+    averageResolutionSeconds: response.average_resolution_seconds,
+    resolvedSampleSize: response.resolved_sample_size,
+    incidentTrend: response.incident_trend.map(
+      (point): IncidentTrendDataPoint => ({
+        date: point.date,
+        label: point.label,
+        total: point.total,
+        critical: point.critical,
+        resolved: point.resolved,
+      }),
+    ),
   }
 }
 

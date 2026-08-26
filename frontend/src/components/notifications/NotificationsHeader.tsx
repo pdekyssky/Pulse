@@ -22,7 +22,7 @@ export default function NotificationsHeader({
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Notifications</h2>
         <p className="mt-1 max-w-2xl text-sm text-gray-500">
-          View updates about incidents and alerts assigned to you.
+          Updates for incidents assigned to you. Unread items need attention.
         </p>
       </div>
 

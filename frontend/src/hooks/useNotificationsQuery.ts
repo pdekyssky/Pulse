@@ -36,6 +36,19 @@ export function useNotificationsList(params: NotificationListParams = {}) {
   })
 }
 
+export function useUnreadNotificationCount() {
+  const query = useNotificationsList({
+    is_read: false,
+    page: 1,
+    page_size: 1,
+  })
+
+  return {
+    ...query,
+    count: query.data?.total ?? 0,
+  }
+}
+
 export function useMarkNotificationRead() {
   const queryClient = useQueryClient()
 

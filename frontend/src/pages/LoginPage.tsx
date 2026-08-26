@@ -61,7 +61,11 @@ export default function LoginPage() {
         return
       }
 
-      setSubmitError('Unable to sign in. Please try again.')
+      setSubmitError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Unable to sign in. Please try again.',
+      )
     }
   })
 

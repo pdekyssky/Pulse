@@ -7,11 +7,30 @@ export type IncidentStatus = 'investigating' | 'identified' | 'monitoring' | 're
 export type IncidentPriority = 'critical' | 'high' | 'medium' | 'low'
 
 export type IncidentEventType =
+  | 'note'
   | 'status_change'
   | 'comment'
   | 'assignment'
   | 'escalation'
   | 'resolution'
+
+export const investigationEventTypes = [
+  'note',
+  'status_change',
+  'assignment',
+  'escalation',
+  'resolution',
+] as const
+
+export type InvestigationEventType = (typeof investigationEventTypes)[number]
+
+export const investigationEventTypeLabels: Record<InvestigationEventType, string> = {
+  note: 'Investigation note',
+  status_change: 'Status change',
+  assignment: 'Assignment',
+  escalation: 'Escalation',
+  resolution: 'Resolution',
+}
 
 export type IncidentLogLevel = 'info' | 'warn' | 'error'
 
@@ -19,6 +38,7 @@ export interface IncidentEvent {
   id: string
   timestamp: string
   type: IncidentEventType
+  sourceType?: string
   message: string
   userId?: string
 }
@@ -33,6 +53,7 @@ export interface IncidentLog {
 export interface IncidentComment {
   id: string
   timestamp: string
+  updatedAt?: string
   userId: string
   content: string
 }
@@ -46,6 +67,10 @@ export interface Incident {
   startedAt: string
   duration: string
   assigneeId: string
+  createdById?: string
+  createdAt?: string
+  updatedAt?: string
+  resolvedAt?: string | null
   affectedServiceIds: string[]
   timeline: IncidentEvent[]
   logs: IncidentLog[]
@@ -71,5 +96,5 @@ export interface CreateIncidentInput {
   description: string
   priority: IncidentPriority
   affectedServiceId: string
-  assigneeId: string
+  assigneeId?: string
 }

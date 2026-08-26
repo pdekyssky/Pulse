@@ -6,7 +6,7 @@ import { X } from 'lucide-react'
 
 import type { User } from '../../types/user.ts'
 import { formatJoinDate, getInitials } from '../../lib/format.ts'
-import { userRoleLabels } from '../../types/user.ts'
+import { userRoleLabels, userStatusLabels } from '../../types/user.ts'
 import UserRoleBadge, { UserStatusBadge } from './UserBadges.tsx'
 
 interface MemberDetailsProps {
@@ -63,9 +63,9 @@ export default function MemberDetails({
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <div className="grid grid-cols-2 gap-4">
             <DetailStat label="Role" value={userRoleLabels[member.role]} />
-            <DetailStat label="Status" value={member.status} />
-            <DetailStat label="Joined" value={formatJoinDate(member.joinedAt)} />
-            <DetailStat label="Member ID" value={member.id} />
+            <DetailStat label="Status" value={userStatusLabels[member.status]} />
+            <DetailStat label="Created" value={formatJoinDate(member.joinedAt)} />
+            <DetailStat label="User ID" value={member.id} />
           </div>
         </div>
 

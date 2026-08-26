@@ -1,50 +1,53 @@
-import type { ReportListParams } from '../../types/api/report.ts'
-import type { ApiReport, ApiReportStats } from '../../types/api/report.ts'
-import type { Report, ReportMetric } from '../../types/report.ts'
-import type { ReportFilters, ReportStatsSummary } from '../report-stats.ts'
+import type {
+  ApiIncidentReportRow,
+  ApiIncidentReportStats,
+  IncidentReportListParams,
+} from '../../types/api/report.ts'
+import type { IncidentPriority, IncidentStatus } from '../../types/incident.ts'
+import type { IncidentReportFilters, IncidentReportStats } from '../report-stats.ts'
 
-/** Map backend report to the existing UI Report model. */
-export function mapApiReportToReport(api: ApiReport): Report {
+export interface IncidentReportRow {
+  id: number
+  title: string
+  severity: IncidentPriority
+  status: IncidentStatus
+  serviceId: number | null
+  serviceName: string | null
+  assignedToId: number | null
+  assignedToName: string | null
+  createdAt: string
+  resolvedAt: string | null
+}
+
+export function mapApiIncidentReportRow(api: ApiIncidentReportRow): IncidentReportRow {
   return {
     id: api.id,
-    name: api.name,
-    type: api.type,
-    periodStart: api.period_start,
-    periodEnd: api.period_end,
+    title: api.title,
+    severity: api.severity as IncidentPriority,
+    status: api.status as IncidentStatus,
+    serviceId: api.service_id,
+    serviceName: api.service_name,
+    assignedToId: api.assigned_to_id,
+    assignedToName: api.assigned_to_name,
     createdAt: api.created_at,
-    status: api.status,
-    generatedById: String(api.generated_by_id),
-    description: api.description ?? undefined,
-    summary: api.summary,
-    scope: api.scope,
-    serviceIds: api.service_ids?.map(String),
-    metrics: api.metrics.map(
-      (metric): ReportMetric => ({
-        label: metric.label,
-        value: metric.value,
-      }),
-    ),
-    scheduledFor: api.scheduled_for ?? undefined,
+    resolvedAt: api.resolved_at,
   }
 }
 
-/** Map backend report stats to summary cards. */
-export function mapApiReportStatsToReportStats(api: ApiReportStats): ReportStatsSummary {
+export function mapApiIncidentReportStats(api: ApiIncidentReportStats): IncidentReportStats {
   return {
     total: api.total,
-    incidentReports: api.incident_reports,
-    serviceReports: api.service_reports,
-    scheduled: api.scheduled,
+    open: api.open,
+    resolved: api.resolved,
   }
 }
 
-/** Map UI filters to GET /reports query parameters. */
-export function buildReportListParams(
-  filters: ReportFilters,
+export function buildIncidentReportListParams(
+  filters: IncidentReportFilters,
   page: number,
   pageSize: number,
-): ReportListParams {
-  const params: ReportListParams = {
+): IncidentReportListParams {
+  const params: IncidentReportListParams = {
     page,
     page_size: pageSize,
   }
@@ -53,11 +56,17 @@ export function buildReportListParams(
   if (search.length > 0) {
     params.search = search
   }
-  if (filters.type !== 'all') {
-    params.type = filters.type
+  if (filters.severity !== 'all') {
+    params.severity = filters.severity
   }
   if (filters.status !== 'all') {
     params.status = filters.status
+  }
+  if (filters.serviceId !== 'all') {
+    const service_id = Number.parseInt(filters.serviceId, 10)
+    if (!Number.isNaN(service_id)) {
+      params.service_id = service_id
+    }
   }
   if (filters.period !== 'all') {
     params.period = filters.period

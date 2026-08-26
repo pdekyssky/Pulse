@@ -2,14 +2,17 @@
  * Provides authenticated session state and login/logout actions.
  */
 
+import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { fetchCurrentUser, loginRequest, logoutRequest } from '../lib/api/auth.ts'
 import { ApiError } from '../lib/api/client.ts'
+import { queryKeys } from '../lib/api/query-keys.ts'
 import type { AuthUser, LoginFormInput } from '../types/auth.ts'
 import { AuthContext } from './auth-context.ts'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
 
@@ -32,9 +35,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [restoreSession])
 
   const login = useCallback(async (input: LoginFormInput) => {
+    queryClient.removeQueries({ queryKey: queryKeys.notifications })
     const response = await loginRequest(input)
     setUser(response.user)
-  }, [])
+  }, [queryClient])
 
   const logout = useCallback(async () => {
     try {
@@ -45,8 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } finally {
       setUser(null)
+      queryClient.removeQueries({ queryKey: queryKeys.notifications })
     }
-  }, [])
+  }, [queryClient])
 
   const value = useMemo(
     () => ({

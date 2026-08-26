@@ -3,6 +3,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import DeleteServiceDialog from '../components/services/DeleteServiceDialog.tsx'
 import QueryState from '../components/common/QueryState.tsx'
@@ -35,7 +36,7 @@ import {
   toServiceCreateFormInput,
   toServiceUpdateFormInput,
 } from '../lib/mappers/service.ts'
-import { serviceToFormInput } from '../lib/service-utils.ts'
+import { parseServiceNumericId, serviceToFormInput } from '../lib/service-utils.ts'
 import {
   defaultServiceFilters,
   filterServices,
@@ -56,7 +57,18 @@ function parseServiceId(id: string): number {
   return serviceId
 }
 
+function parseRouteServiceId(value: string | undefined): number | null {
+  if (!value || !/^\d+$/.test(value)) {
+    return null
+  }
+
+  const id = Number(value)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
 export default function ServicesPage() {
+  const { serviceId: serviceIdParam } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
 
@@ -69,12 +81,13 @@ export default function ServicesPage() {
   const [filters, setFilters] = useState<ServiceFiltersState>(defaultServiceFilters)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(DEFAULT_PAGE_SIZE)
-  const [viewingServiceId, setViewingServiceId] = useState<string | null>(null)
   const [formState, setFormState] = useState<ServiceFormState | null>(null)
   const [deletingService, setDeletingService] = useState<Service | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  const selectedNumericId = parseRouteServiceId(serviceIdParam)
 
   const filteredServices = useMemo(
     () => filterServices(services, filters),
@@ -89,8 +102,12 @@ export default function ServicesPage() {
   )
 
   const viewingService = useMemo(
-    () => services.find((service) => service.id === viewingServiceId) ?? null,
-    [services, viewingServiceId],
+    () =>
+      selectedNumericId
+        ? services.find((service) => parseServiceNumericId(service.id) === selectedNumericId) ??
+          null
+        : null,
+    [selectedNumericId, services],
   )
 
   const viewingOwner = users.find((user) => user.id === viewingService?.ownerId)
@@ -101,7 +118,11 @@ export default function ServicesPage() {
       : updateServiceMutation.isPending
 
   const handleView = (service: Service) => {
-    setViewingServiceId(service.id)
+    const numericId = parseServiceNumericId(service.id)
+    if (!numericId) {
+      return
+    }
+    navigate(`/services/${numericId}`)
   }
 
   const handleFiltersChange = (nextFilters: ServiceFiltersState) => {
@@ -148,8 +169,12 @@ export default function ServicesPage() {
       try {
         if (formState?.mode === 'create') {
           const body = mapServiceFormToCreateBody(toServiceCreateFormInput(input))
-          await createServiceMutation.mutateAsync(body)
+          const created = await createServiceMutation.mutateAsync(body)
           setToastMessage('Service created successfully.')
+          const numericId = parseServiceNumericId(created.id)
+          if (numericId) {
+            navigate(`/services/${numericId}`)
+          }
         } else if (formState?.mode === 'edit') {
           const original = serviceToUpdateFormInput(formState.service)
           const updateInput = toServiceUpdateFormInput(input)
@@ -176,7 +201,7 @@ export default function ServicesPage() {
         setSubmitError(message)
       }
     },
-    [closeForm, createServiceMutation, formState, updateServiceMutation],
+    [closeForm, createServiceMutation, formState, navigate, updateServiceMutation],
   )
 
   const handleDeleteConfirm = useCallback(async () => {
@@ -189,8 +214,8 @@ export default function ServicesPage() {
     try {
       await deleteServiceMutation.mutateAsync(parseServiceId(deletingService.id))
 
-      if (viewingServiceId === deletingService.id) {
-        setViewingServiceId(null)
+      if (selectedNumericId === parseServiceNumericId(deletingService.id)) {
+        navigate('/services')
       }
 
       closeDeleteDialog()
@@ -205,7 +230,7 @@ export default function ServicesPage() {
 
       setDeleteError(message)
     }
-  }, [closeDeleteDialog, deleteServiceMutation, deletingService, viewingServiceId])
+  }, [closeDeleteDialog, deleteServiceMutation, deletingService, navigate, selectedNumericId])
 
   const formInitialValues =
     formState?.mode === 'edit' ? serviceToFormInput(formState.service) : undefined
@@ -218,6 +243,7 @@ export default function ServicesPage() {
         <ServiceFilters filters={filters} onChange={handleFiltersChange} />
         <ServiceTable
           services={paginatedServices}
+          users={users}
           totalCount={services.length}
           onView={handleView}
           onEdit={isAdmin ? openEditForm : undefined}
@@ -233,7 +259,7 @@ export default function ServicesPage() {
         <ServiceDetails
           service={viewingService}
           owner={viewingOwner}
-          onClose={() => setViewingServiceId(null)}
+          onClose={() => navigate('/services')}
         />
 
         {isAdmin && formState && (

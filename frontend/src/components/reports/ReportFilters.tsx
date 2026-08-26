@@ -1,50 +1,57 @@
 /**
- * Filter bar for report search, type, and status.
+ * Filter bar for the incident report list.
  */
 
 import { ChevronDown, RotateCcw, Search } from 'lucide-react'
 
 import {
-  defaultReportFilters,
+  defaultIncidentReportFilters,
+  type IncidentReportFilters,
   type ReportFilterPeriod,
-  type ReportFilters as ReportFiltersState,
 } from '../../lib/report-stats.ts'
-import type { ReportStatus, ReportType } from '../../types/report.ts'
-import { reportStatusLabels, reportTypeLabels } from '../../types/report.ts'
+import type { Service } from '../../types/service.ts'
+import {
+  incidentPriorityLabels,
+  incidentStatusLabels,
+  type IncidentPriority,
+  type IncidentStatus,
+} from '../../types/incident.ts'
 
 interface ReportFiltersProps {
-  filters: ReportFiltersState
-  onChange: (filters: ReportFiltersState) => void
+  filters: IncidentReportFilters
+  services: Service[]
+  onChange: (filters: IncidentReportFilters) => void
 }
 
-const typeOptions: Array<{ value: ReportType | 'all'; label: string }> = [
-  { value: 'all', label: 'All Types' },
-  ...Object.entries(reportTypeLabels).map(([value, label]) => ({
-    value: value as ReportType,
+const severityOptions: Array<{ value: IncidentPriority | 'all'; label: string }> = [
+  { value: 'all', label: 'All Severities' },
+  ...Object.entries(incidentPriorityLabels).map(([value, label]) => ({
+    value: value as IncidentPriority,
     label,
   })),
 ]
 
-const statusOptions: Array<{ value: ReportStatus | 'all'; label: string }> = [
+const statusOptions: Array<{ value: IncidentStatus | 'all'; label: string }> = [
   { value: 'all', label: 'All Statuses' },
-  ...Object.entries(reportStatusLabels).map(([value, label]) => ({
-    value: value as ReportStatus,
+  ...Object.entries(incidentStatusLabels).map(([value, label]) => ({
+    value: value as IncidentStatus,
     label,
   })),
 ]
 
 const periodOptions: Array<{ value: ReportFilterPeriod; label: string }> = [
-  { value: 'all', label: 'All Periods' },
+  { value: 'all', label: 'All Time' },
   { value: 'last_7_days', label: 'Last 7 Days' },
   { value: 'last_30_days', label: 'Last 30 Days' },
   { value: 'last_90_days', label: 'Last 90 Days' },
 ]
 
-export default function ReportFilters({ filters, onChange }: ReportFiltersProps) {
+export default function ReportFilters({ filters, services, onChange }: ReportFiltersProps) {
   const hasActiveFilters =
     filters.search !== '' ||
-    filters.type !== 'all' ||
+    filters.severity !== 'all' ||
     filters.status !== 'all' ||
+    filters.serviceId !== 'all' ||
     filters.period !== 'all'
 
   return (
@@ -56,7 +63,7 @@ export default function ReportFilters({ filters, onChange }: ReportFiltersProps)
         />
         <input
           type="search"
-          placeholder="Search reports..."
+          placeholder="Search by title or ID..."
           value={filters.search}
           onChange={(event) => onChange({ ...filters, search: event.target.value })}
           className="w-full rounded-lg border border-gray-200 bg-white py-2 pr-3 pl-9 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-pulse-500 focus:ring-2 focus:ring-pulse-500/20 focus:outline-none"
@@ -64,17 +71,23 @@ export default function ReportFilters({ filters, onChange }: ReportFiltersProps)
       </div>
 
       <FilterSelect
-        value={filters.type}
-        options={typeOptions}
-        onChange={(type) => onChange({ ...filters, type })}
+        value={filters.severity}
+        options={severityOptions}
+        onChange={(severity) => onChange({ ...filters, severity })}
       />
-
       <FilterSelect
         value={filters.status}
         options={statusOptions}
         onChange={(status) => onChange({ ...filters, status })}
       />
-
+      <FilterSelect
+        value={filters.serviceId}
+        options={[
+          { value: 'all', label: 'All Services' },
+          ...services.map((service) => ({ value: service.id, label: service.name })),
+        ]}
+        onChange={(serviceId) => onChange({ ...filters, serviceId })}
+      />
       <FilterSelect
         value={filters.period}
         options={periodOptions}
@@ -84,7 +97,7 @@ export default function ReportFilters({ filters, onChange }: ReportFiltersProps)
       {hasActiveFilters && (
         <button
           type="button"
-          onClick={() => onChange(defaultReportFilters)}
+          onClick={() => onChange(defaultIncidentReportFilters)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
         >
           <RotateCcw className="size-3.5" aria-hidden="true" />

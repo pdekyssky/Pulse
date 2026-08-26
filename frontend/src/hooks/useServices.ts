@@ -31,6 +31,7 @@ export function useCreateService() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.services })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview })
     },
   })
 }
@@ -50,6 +51,7 @@ export function useUpdateService() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.services })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview })
     },
   })
 }
@@ -61,6 +63,7 @@ export function useDeleteService() {
     mutationFn: (id: number) => deleteService(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.services })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview })
     },
   })
 }

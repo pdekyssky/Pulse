@@ -1,5 +1,6 @@
 import type { ApiNotification } from '../../types/api/notification.ts'
 import type { Notification } from '../../types/notification.ts'
+import { parseIncidentNumericId } from '../incident-utils.ts'
 
 export function mapApiNotificationToNotification(api: ApiNotification): Notification {
   return {
@@ -12,4 +13,13 @@ export function mapApiNotificationToNotification(api: ApiNotification): Notifica
     alertId: api.alert_id !== null ? String(api.alert_id) : undefined,
     createdAt: api.created_at,
   }
+}
+
+export function getNotificationIncidentPath(notification: Notification): string | null {
+  if (!notification.incidentId) {
+    return null
+  }
+
+  const incidentId = parseIncidentNumericId(notification.incidentId)
+  return incidentId ? `/incidents/${incidentId}` : null
 }

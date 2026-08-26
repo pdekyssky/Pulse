@@ -11,6 +11,7 @@ interface NotificationListProps {
   totalCount: number
   readFilter: 'all' | 'unread' | 'read'
   onMarkAsRead?: (notification: Notification) => void
+  onOpen?: (notification: Notification) => void
   mutatingNotificationId?: string | null
 }
 
@@ -19,25 +20,24 @@ export default function NotificationList({
   totalCount,
   readFilter,
   onMarkAsRead,
+  onOpen,
   mutatingNotificationId = null,
 }: NotificationListProps) {
   const hasNoNotifications = totalCount === 0
-  const hasNoMatches = !hasNoNotifications && notifications.length === 0
 
   if (notifications.length === 0) {
+    const emptyMessage =
+      readFilter === 'unread'
+        ? "No unread notifications. You're all caught up."
+        : readFilter === 'read'
+          ? 'No read notifications yet.'
+          : hasNoNotifications
+            ? "No notifications yet. You'll be notified when an incident is assigned to you, its status changes, or someone comments or adds an event on an incident you're assigned to."
+            : 'No notifications on this page.'
+
     return (
       <Card className="px-5 py-12 text-center">
-        <p className="text-sm text-gray-500">
-          {hasNoNotifications
-            ? 'No notifications yet.'
-            : hasNoMatches
-              ? readFilter === 'unread'
-                ? 'No unread notifications.'
-                : readFilter === 'read'
-                  ? 'No read notifications.'
-                  : 'No notifications match your filters.'
-              : 'No notifications on this page.'}
-        </p>
+        <p className="text-sm text-gray-500">{emptyMessage}</p>
       </Card>
     )
   }
@@ -49,6 +49,7 @@ export default function NotificationList({
           key={notification.id}
           notification={notification}
           onMarkAsRead={onMarkAsRead}
+          onOpen={onOpen}
           isMutating={mutatingNotificationId === notification.id}
         />
       ))}

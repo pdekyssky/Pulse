@@ -1,5 +1,6 @@
 /**
- * TypeScript types for services, health checks, and form inputs.
+ * TypeScript types for services and form inputs.
+ * Fields match the Express Service model unless marked optional leftover UI fields.
  */
 
 export type ServiceStatus = 'operational' | 'degraded' | 'down'
@@ -27,15 +28,17 @@ export interface Service {
   description: string
   status: ServiceStatus
   uptime: number
-  responseTime: number
-  team: string
-  category: ServiceCategory
-  environment: ServiceEnvironment
-  lastCheck: string
   ownerId: string
   createdAt: string
-  healthChecks: HealthCheck[]
-  recentMetrics: ServiceMetric[]
+  updatedAt?: string
+  /** Optional leftover fields used by mock/analytics pages; not returned by Express. */
+  responseTime?: number
+  team?: string
+  category?: ServiceCategory
+  environment?: ServiceEnvironment
+  lastCheck?: string
+  healthChecks?: HealthCheck[]
+  recentMetrics?: ServiceMetric[]
 }
 
 export const serviceCategoryLabels: Record<ServiceCategory, string> = {
@@ -50,20 +53,13 @@ export const serviceEnvironmentLabels: Record<ServiceEnvironment, string> = {
   development: 'Development',
 }
 
+/** Backend-backed service form fields. */
 export interface ServiceFormInput {
   name: string
   description: string
   ownerId: string
-  /** Uptime percentage (0–999.99). Required for create; populated from service on edit when available. */
   uptime?: number
-  /** UI-only — not sent to the Services CRUD API */
   status: ServiceStatus
-  /** UI-only — not sent to the Services CRUD API */
-  category: ServiceCategory
-  /** UI-only — not sent to the Services CRUD API */
-  environment: ServiceEnvironment
-  /** UI-only — not sent to the Services CRUD API */
-  team: string
 }
 
 /** Backend-backed create fields derived from ServiceFormInput. */
@@ -72,6 +68,7 @@ export interface ServiceCreateFormInput {
   description: string
   ownerId: string
   uptime: number | string
+  status: ServiceStatus
 }
 
 /** Backend-backed update fields for partial PATCH payloads. */
@@ -80,4 +77,5 @@ export interface ServiceUpdateFormInput {
   description?: string
   ownerId?: string
   uptime?: number | string
+  status?: ServiceStatus
 }

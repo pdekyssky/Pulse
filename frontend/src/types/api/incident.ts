@@ -64,15 +64,12 @@ export interface IncidentListParams {
   sort_order?: ApiSortOrder
 }
 
-/** POST /api/v1/incidents — maps to `IncidentCreate`. */
+/** POST /api/v1/incidents — backend sets status, creator, and assignee. */
 export interface ApiIncidentCreate {
   title: string
-  description?: string | null
-  status: ApiIncidentStatus
+  description: string | null
   severity: ApiIncidentSeverity
   service_id: number
-  started_at: string
-  resolved_at?: string | null
 }
 
 /** PATCH /api/v1/incidents/{id} — maps to `IncidentUpdate`. */
@@ -85,6 +82,12 @@ export interface ApiIncidentUpdate {
   assigned_to_id?: number | null
   started_at?: string | null
   resolved_at?: string | null
+}
+
+/** POST /api/v1/incidents/{id}/events */
+export interface ApiIncidentEventCreate {
+  event_type: string
+  message: string
 }
 
 /** POST /api/v1/incidents/{id}/comments — maps to `IncidentCommentCreateBody`. */

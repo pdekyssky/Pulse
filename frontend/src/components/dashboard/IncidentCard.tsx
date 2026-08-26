@@ -2,6 +2,8 @@
  * Compact incident summary card for the overview list.
  */
 
+import { Link } from 'react-router-dom'
+
 import type { Incident } from '../../types/incident.ts'
 import type { User } from '../../types/user.ts'
 import StatusBadge from '../ui/StatusBadge.tsx'
@@ -11,6 +13,7 @@ import {
   formatTime,
   getInitials,
 } from '../../lib/format.ts'
+import { parseIncidentNumericId } from '../../lib/incident-utils.ts'
 
 interface IncidentCardProps {
   incident: Incident
@@ -18,8 +21,14 @@ interface IncidentCardProps {
 }
 
 export default function IncidentCard({ incident, assignee }: IncidentCardProps) {
+  const numericId = parseIncidentNumericId(incident.id)
+  const href = numericId ? `/incidents/${numericId}` : '/incidents'
+
   return (
-    <article className="rounded-lg border border-gray-100 bg-gray-50/50 p-4 transition-colors hover:border-gray-200 hover:bg-white">
+    <Link
+      to={href}
+      className="block rounded-lg border border-gray-100 bg-gray-50/50 p-4 transition-colors hover:border-gray-200 hover:bg-white"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -55,6 +64,6 @@ export default function IncidentCard({ incident, assignee }: IncidentCardProps) 
           </div>
         )}
       </div>
-    </article>
+    </Link>
   )
 }

@@ -1,6 +1,5 @@
-import Incident from '../models/Incidents.js';
-import Service from '../models/Service.js';
-import Alert from '../models/Alert.js';
+import Incident, { INCIDENT_STATUSES, INCIDENT_SEVERITIES } from '../models/Incidents.js';
+import Service, { SERVICE_STATUSES } from '../models/Service.js';
 
 const DATE_RANGE_DAYS = {
     '7d': 7,
@@ -9,20 +8,6 @@ const DATE_RANGE_DAYS = {
 };
 
 const DATE_RANGES = Object.keys(DATE_RANGE_DAYS);
-
-const STATUS_RESPONSE_TIME_MS = {
-    operational: 45,
-    degraded: 80,
-    down: 150
-};
-
-const SEVERITY_UPTIME_PENALTY = {
-    critical: 1.5,
-    high: 1,
-    medium: 0.5,
-    low: 0.2
-};
-
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function parseNumericId(value) {
@@ -83,190 +68,61 @@ function formatDateLabel(day) {
     return `${MONTH_LABELS[day.getUTCMonth()]} ${date}`;
 }
 
-function formatUptime(value) {
-    return `${value.toFixed(2)}%`;
+function emptyCountMap(keys) {
+    return Object.fromEntries(keys.map((key) => [key, 0]));
 }
 
-function formatResponseTime(value) {
-    return `${Math.round(value)} ms`;
-}
-
-function formatMttr(totalSeconds) {
-    if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-        return '0m';
-    }
-
-    const totalMinutes = Math.floor(totalSeconds / 60);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    if (hours > 0) {
-        return `${hours}h ${minutes}m`;
-    }
-
-    return `${minutes}m`;
-}
-
-function numericUptime(service) {
-    if (typeof service.uptime === 'number' && Number.isFinite(service.uptime)) {
-        return service.uptime;
-    }
-
-    return 0;
-}
-
-function averageServiceUptime(services) {
-    if (services.length === 0) {
-        return 100;
-    }
-
-    const sum = services.reduce((total, service) => total + numericUptime(service), 0);
-    return sum / services.length;
-}
-
-function inDayWindow(value, day) {
-    const timestamp = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(timestamp.getTime())) {
-        return false;
-    }
-
-    const start = day;
-    const end = addUtcDays(day, 1);
-    return timestamp >= start && timestamp < end;
-}
-
-function estimateDailyUptime(baseUptime, incidents, day) {
-    let penalty = 0;
-
-    for (const incident of incidents) {
-        if (!inDayWindow(incident.createdAt, day)) {
-            continue;
-        }
-
-        penalty += SEVERITY_UPTIME_PENALTY[incident.severity] ?? 0.3;
-    }
-
-    return Math.max(90, Math.min(100, baseUptime - penalty));
-}
-
-function estimateDailyResponseTime(incidents, day) {
-    let spike = 0;
-
-    for (const incident of incidents) {
-        if (!inDayWindow(incident.createdAt, day)) {
-            continue;
-        }
-
-        if (incident.severity === 'critical') {
-            spike += 50;
-        } else if (incident.severity === 'high') {
-            spike += 30;
-        } else {
-            spike += 10;
-        }
-    }
-
-    return 45 + spike;
-}
-
-function buildUptimeSeries(services, incidents, dates) {
-    if (services.length === 0) {
-        return dates.map((day) => ({
+function emptyOverview(dateRange, serviceId, dates) {
+    return {
+        date_range: dateRange,
+        service_id: serviceId,
+        incidents: {
+            total: 0,
+            open: 0,
+            resolved: 0,
+            by_severity: emptyCountMap(INCIDENT_SEVERITIES),
+            by_status: emptyCountMap(INCIDENT_STATUSES),
+            by_service: []
+        },
+        services: {
+            total: 0,
+            operational: 0,
+            degraded: 0,
+            down: 0,
+            items: []
+        },
+        average_resolution_seconds: null,
+        resolved_sample_size: 0,
+        incident_trend: dates.map((day) => ({
             date: isoDate(day),
             label: formatDateLabel(day),
-            uptime: 100
-        }));
-    }
-
-    const baseUptime = averageServiceUptime(services);
-
-    return dates.map((day) => ({
-        date: isoDate(day),
-        label: formatDateLabel(day),
-        uptime: Number(estimateDailyUptime(baseUptime, incidents, day).toFixed(2))
-    }));
+            total: 0,
+            critical: 0,
+            resolved: 0
+        }))
+    };
 }
 
-function buildIncidentTrend(createdIncidents, resolvedIncidents, dates) {
-    return dates.map((day) => {
-        let total = 0;
-        let critical = 0;
-        let resolved = 0;
+function applyCounts(keys, buckets) {
+    const counts = emptyCountMap(keys);
 
-        for (const incident of createdIncidents) {
-            if (!inDayWindow(incident.createdAt, day)) {
-                continue;
-            }
-
-            total += 1;
-            if (incident.severity === 'critical') {
-                critical += 1;
-            }
-        }
-
-        for (const incident of resolvedIncidents) {
-            if (inDayWindow(incident.resolvedAt, day)) {
-                resolved += 1;
-            }
-        }
-
-        return {
-            date: isoDate(day),
-            label: formatDateLabel(day),
-            total,
-            critical,
-            resolved
-        };
-    });
-}
-
-function buildResponseTimeSeries(incidents, dates) {
-    return dates.map((day) => ({
-        date: isoDate(day),
-        label: formatDateLabel(day),
-        response_time: Number(estimateDailyResponseTime(incidents, day).toFixed(1))
-    }));
-}
-
-function buildServicePerformance(services, incidents) {
-    const counts = new Map();
-
-    for (const incident of incidents) {
-        const key = String(incident.service);
-        counts.set(key, (counts.get(key) || 0) + 1);
-    }
-
-    const rows = services.map((service) => ({
-        service_id: service.id,
-        service_name: service.name,
-        uptime: numericUptime(service),
-        response_time: STATUS_RESPONSE_TIME_MS[service.status] ?? 45,
-        incident_count: counts.get(String(service._id)) || 0
-    }));
-
-    rows.sort((a, b) => b.uptime - a.uptime);
-    return rows;
-}
-
-function computeMttr(resolvedIncidents) {
-    const eligible = resolvedIncidents.filter((incident) => incident.status === 'resolved' && incident.resolvedAt);
-
-    if (eligible.length === 0) {
-        return '0m';
-    }
-
-    let totalSeconds = 0;
-
-    for (const incident of eligible) {
-        const startedAt = incident.startedAt || incident.createdAt;
-        if (!startedAt) {
+    for (const bucket of buckets) {
+        if (bucket._id === undefined || bucket._id === null || bucket._id === '') {
             continue;
         }
 
-        totalSeconds += (new Date(incident.resolvedAt) - new Date(startedAt)) / 1000;
+        counts[bucket._id] = bucket.count;
     }
 
-    return formatMttr(totalSeconds / eligible.length);
+    return counts;
+}
+
+function numericRefId(doc) {
+    if (doc && typeof doc === 'object' && typeof doc.id === 'number') {
+        return doc.id;
+    }
+
+    return null;
 }
 
 const getAnalyticsOverview = async (req, res) => {
@@ -301,76 +157,178 @@ const getAnalyticsOverview = async (req, res) => {
         const requestedServiceId = serviceIdResult.missing ? null : serviceIdResult.id;
 
         if (!serviceIdResult.missing && !service) {
-            const emptySeries = buildUptimeSeries([], [], dates);
-            const emptyTrend = buildIncidentTrend([], [], dates);
-            const emptyResponse = buildResponseTimeSeries([], dates);
-
-            return res.status(200).json({
-                date_range: dateRange,
-                service_id: requestedServiceId,
-                kpis: {
-                    overall_uptime: formatUptime(100),
-                    average_response_time: formatResponseTime(
-                        emptyResponse.reduce((sum, point) => sum + point.response_time, 0) / emptyResponse.length
-                    ),
-                    total_incidents: 0,
-                    mttr: '0m',
-                    alert_volume: 0
-                },
-                uptime_series: emptySeries,
-                incident_trend: emptyTrend,
-                response_time_series: emptyResponse,
-                service_performance: []
-            });
+            return res.status(200).json(emptyOverview(dateRange, requestedServiceId, dates));
         }
 
-        const serviceFilter = service ? { service: service._id } : {};
+        const incidentMatch = {
+            createdAt: { $gte: rangeStart, $lt: rangeEnd }
+        };
+
+        if (service) {
+            incidentMatch.service = service._id;
+        }
+
         const serviceQuery = service ? { _id: service._id } : {};
 
-        const [services, createdIncidents, resolvedIncidents, alertVolume] = await Promise.all([
+        const [services, incidentFacet, createdByDay, resolvedByDay] = await Promise.all([
             Service.find(serviceQuery).select('id name status uptime').sort({ name: 1 }),
-            Incident.find({
-                createdAt: { $gte: rangeStart, $lt: rangeEnd },
-                ...serviceFilter
-            }).select('severity createdAt service'),
-            Incident.find({
-                resolvedAt: { $ne: null, $gte: rangeStart, $lt: rangeEnd },
-                ...serviceFilter
-            }).select('status startedAt createdAt resolvedAt'),
-            Alert.countDocuments({
-                createdAt: { $gte: rangeStart, $lt: rangeEnd },
-                ...serviceFilter
-            })
+            Incident.aggregate([
+                { $match: incidentMatch },
+                {
+                    $facet: {
+                        total: [{ $count: 'count' }],
+                        open: [
+                            { $match: { status: { $ne: 'resolved' } } },
+                            { $count: 'count' }
+                        ],
+                        resolved: [
+                            { $match: { status: 'resolved' } },
+                            { $count: 'count' }
+                        ],
+                        byStatus: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
+                        bySeverity: [{ $group: { _id: '$severity', count: { $sum: 1 } } }],
+                        byService: [{ $group: { _id: '$service', count: { $sum: 1 } } }],
+                        resolution: [
+                            {
+                                $match: {
+                                    status: 'resolved',
+                                    resolvedAt: { $ne: null },
+                                    startedAt: { $ne: null }
+                                }
+                            },
+                            {
+                                $group: {
+                                    _id: null,
+                                    avgMs: { $avg: { $subtract: ['$resolvedAt', '$startedAt'] } },
+                                    count: { $sum: 1 }
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]),
+            Incident.aggregate([
+                { $match: incidentMatch },
+                {
+                    $group: {
+                        _id: {
+                            $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' }
+                        },
+                        total: { $sum: 1 },
+                        critical: {
+                            $sum: { $cond: [{ $eq: ['$severity', 'critical'] }, 1, 0] }
+                        }
+                    }
+                }
+            ]),
+            Incident.aggregate([
+                {
+                    $match: {
+                        resolvedAt: { $ne: null, $gte: rangeStart, $lt: rangeEnd },
+                        ...(service ? { service: service._id } : {})
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            $dateToString: { format: '%Y-%m-%d', date: '$resolvedAt', timezone: 'UTC' }
+                        },
+                        resolved: { $sum: 1 }
+                    }
+                }
+            ])
         ]);
 
         for (const item of services) {
             await item.ensureNumericId();
         }
 
-        const uptimeSeries = buildUptimeSeries(services, createdIncidents, dates);
-        const incidentTrend = buildIncidentTrend(createdIncidents, resolvedIncidents, dates);
-        const responseTimeSeries = buildResponseTimeSeries(createdIncidents, dates);
-        const servicePerformance = buildServicePerformance(services, createdIncidents);
+        const facet = incidentFacet[0] ?? {
+            total: [],
+            open: [],
+            resolved: [],
+            byStatus: [],
+            bySeverity: [],
+            byService: [],
+            resolution: []
+        };
 
-        const overallUptime = averageServiceUptime(services);
-        const averageResponseTime = responseTimeSeries.length > 0
-            ? responseTimeSeries.reduce((sum, point) => sum + point.response_time, 0) / responseTimeSeries.length
-            : 45;
+        const totalIncidents = facet.total[0]?.count ?? 0;
+        const byStatus = applyCounts(INCIDENT_STATUSES, facet.byStatus);
+        const bySeverity = applyCounts(INCIDENT_SEVERITIES, facet.bySeverity);
+        const openIncidents = facet.open[0]?.count ?? 0;
+        const resolvedIncidents = facet.resolved[0]?.count ?? 0;
+
+        const serviceByMongoId = new Map(services.map((item) => [String(item._id), item]));
+        const incidentCountByService = new Map(
+            (facet.byService ?? []).map((bucket) => [String(bucket._id), bucket.count])
+        );
+
+        const incidentsByService = [...incidentCountByService.entries()]
+            .map(([mongoId, count]) => {
+                const item = serviceByMongoId.get(mongoId);
+                return {
+                    service_id: item ? numericRefId(item) : null,
+                    service_name: item ? item.name : 'Unknown',
+                    count
+                };
+            })
+            .sort((a, b) => b.count - a.count);
+
+        const serviceHealth = emptyCountMap(SERVICE_STATUSES);
+        for (const item of services) {
+            if (Object.prototype.hasOwnProperty.call(serviceHealth, item.status)) {
+                serviceHealth[item.status] += 1;
+            }
+        }
+
+        const createdMap = new Map(createdByDay.map((bucket) => [bucket._id, bucket]));
+        const resolvedMap = new Map(resolvedByDay.map((bucket) => [bucket._id, bucket.resolved]));
+
+        const incidentTrend = dates.map((day) => {
+            const key = isoDate(day);
+            const created = createdMap.get(key);
+            return {
+                date: key,
+                label: formatDateLabel(day),
+                total: created?.total ?? 0,
+                critical: created?.critical ?? 0,
+                resolved: resolvedMap.get(key) ?? 0
+            };
+        });
+
+        const resolution = facet.resolution[0];
+        const averageResolutionSeconds = resolution && Number.isFinite(resolution.avgMs)
+            ? Number((resolution.avgMs / 1000).toFixed(1))
+            : null;
 
         res.status(200).json({
             date_range: dateRange,
             service_id: requestedServiceId,
-            kpis: {
-                overall_uptime: formatUptime(overallUptime),
-                average_response_time: formatResponseTime(averageResponseTime),
-                total_incidents: createdIncidents.length,
-                mttr: computeMttr(resolvedIncidents),
-                alert_volume: alertVolume
+            incidents: {
+                total: totalIncidents,
+                open: openIncidents,
+                resolved: resolvedIncidents,
+                by_severity: bySeverity,
+                by_status: byStatus,
+                by_service: incidentsByService
             },
-            uptime_series: uptimeSeries,
-            incident_trend: incidentTrend,
-            response_time_series: responseTimeSeries,
-            service_performance: servicePerformance
+            services: {
+                total: services.length,
+                operational: serviceHealth.operational,
+                degraded: serviceHealth.degraded,
+                down: serviceHealth.down,
+                items: services.map((item) => ({
+                    service_id: item.id,
+                    service_name: item.name,
+                    status: item.status,
+                    uptime: typeof item.uptime === 'number' ? item.uptime : null,
+                    incident_count: incidentCountByService.get(String(item._id)) ?? 0
+                }))
+            },
+            average_resolution_seconds: averageResolutionSeconds,
+            resolved_sample_size: resolution?.count ?? 0,
+            incident_trend: incidentTrend
         });
     } catch (error) {
         res.status(500).json({

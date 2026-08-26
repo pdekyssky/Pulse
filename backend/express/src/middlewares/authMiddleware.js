@@ -20,6 +20,12 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
+        if (user.is_active === false) {
+            return res.status(401).json({
+                message: 'Account is inactive'
+            });
+        }
+
         req.user = user;
         next();
     } catch (error) {

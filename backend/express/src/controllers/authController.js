@@ -101,6 +101,12 @@ const login = async (req, res) => {
             });
         }
 
+        if (user.is_active === false) {
+            return res.status(401).json({
+                message: 'Account is inactive'
+            });
+        }
+
         await user.ensureNumericId();
 
         const token = jwt.sign(

@@ -1,5 +1,5 @@
 /**
- * Filter bar for service search, status, and category.
+ * Filter bar for service search and status.
  */
 
 import { ChevronDown, RotateCcw, Search } from 'lucide-react'
@@ -8,8 +8,7 @@ import {
   defaultServiceFilters,
   type ServiceFilters as ServiceFiltersState,
 } from '../../lib/service-stats.ts'
-import type { ServiceCategory, ServiceStatus } from '../../types/service.ts'
-import { serviceCategoryLabels } from '../../types/service.ts'
+import type { ServiceStatus } from '../../types/service.ts'
 
 interface ServiceFiltersProps {
   filters: ServiceFiltersState
@@ -23,17 +22,8 @@ const statusOptions: Array<{ value: ServiceStatus | 'all'; label: string }> = [
   { value: 'down', label: 'Down' },
 ]
 
-const categoryOptions: Array<{ value: ServiceCategory | 'all'; label: string }> = [
-  { value: 'all', label: 'All Categories' },
-  ...Object.entries(serviceCategoryLabels).map(([value, label]) => ({
-    value: value as ServiceCategory,
-    label,
-  })),
-]
-
 export default function ServiceFilters({ filters, onChange }: ServiceFiltersProps) {
-  const hasActiveFilters =
-    filters.search !== '' || filters.status !== 'all' || filters.category !== 'all'
+  const hasActiveFilters = filters.search !== '' || filters.status !== 'all'
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -51,17 +41,25 @@ export default function ServiceFilters({ filters, onChange }: ServiceFiltersProp
         />
       </div>
 
-      <FilterSelect
-        value={filters.status}
-        options={statusOptions}
-        onChange={(status) => onChange({ ...filters, status })}
-      />
-
-      <FilterSelect
-        value={filters.category}
-        options={categoryOptions}
-        onChange={(category) => onChange({ ...filters, category })}
-      />
+      <div className="relative">
+        <select
+          value={filters.status}
+          onChange={(event) =>
+            onChange({ ...filters, status: event.target.value as ServiceStatus | 'all' })
+          }
+          className="w-full appearance-none rounded-lg border border-gray-200 bg-white py-2 pr-9 pl-3 text-sm font-medium text-gray-700 shadow-sm focus:border-pulse-500 focus:ring-2 focus:ring-pulse-500/20 focus:outline-none sm:w-auto"
+        >
+          {statusOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-gray-400"
+          aria-hidden="true"
+        />
+      </div>
 
       {hasActiveFilters && (
         <button
@@ -73,36 +71,6 @@ export default function ServiceFilters({ filters, onChange }: ServiceFiltersProp
           Reset
         </button>
       )}
-    </div>
-  )
-}
-
-function FilterSelect<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T
-  options: Array<{ value: T; label: string }>
-  onChange: (value: T) => void
-}) {
-  return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-        className="w-full appearance-none rounded-lg border border-gray-200 bg-white py-2 pr-9 pl-3 text-sm font-medium text-gray-700 shadow-sm focus:border-pulse-500 focus:ring-2 focus:ring-pulse-500/20 focus:outline-none sm:w-auto"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-gray-400"
-        aria-hidden="true"
-      />
     </div>
   )
 }

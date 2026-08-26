@@ -2,9 +2,12 @@
  * Filter bar for searching and narrowing incident list.
  */
 
-import { ChevronDown, Search } from 'lucide-react'
+import { ChevronDown, RotateCcw, Search } from 'lucide-react'
 
-import type { IncidentFilters as IncidentFiltersState } from '../../lib/incident-stats.ts'
+import {
+  defaultIncidentFilters,
+  type IncidentFilters as IncidentFiltersState,
+} from '../../lib/incident-stats.ts'
 import type { Service } from '../../types/service.ts'
 import {
   incidentPriorityLabels,
@@ -28,20 +31,20 @@ const statusOptions: Array<{ value: IncidentStatus | 'all'; label: string }> = [
 ]
 
 const priorityOptions: Array<{ value: IncidentPriority | 'all'; label: string }> = [
-  { value: 'all', label: 'All Priorities' },
+  { value: 'all', label: 'All Severities' },
   ...Object.entries(incidentPriorityLabels).map(([value, label]) => ({
     value: value as IncidentPriority,
     label,
   })),
 ]
 
-const dateOptions = [
-  { value: 'all' as const, label: 'All Time' },
-  { value: '7d' as const, label: 'Last 7 Days' },
-  { value: '30d' as const, label: 'Last 30 Days' },
-]
-
 export default function IncidentFilters({ filters, services, onChange }: IncidentFiltersProps) {
+  const hasActiveFilters =
+    filters.search !== '' ||
+    filters.status !== 'all' ||
+    filters.priority !== 'all' ||
+    filters.serviceId !== 'all'
+
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
       <div className="relative min-w-0 flex-1 lg:max-w-xs">
@@ -76,11 +79,17 @@ export default function IncidentFilters({ filters, services, onChange }: Inciden
         ]}
         onChange={(serviceId) => onChange({ ...filters, serviceId })}
       />
-      <FilterSelect
-        value={filters.dateRange}
-        options={dateOptions}
-        onChange={(dateRange) => onChange({ ...filters, dateRange })}
-      />
+
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={() => onChange(defaultIncidentFilters)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+        >
+          <RotateCcw className="size-3.5" aria-hidden="true" />
+          Reset
+        </button>
+      )}
     </div>
   )
 }

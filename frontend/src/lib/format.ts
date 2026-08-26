@@ -3,7 +3,11 @@
  */
 
 export function formatIncidentId(id: string): string {
-  return id.replace(/^inc-/i, 'INC-').toUpperCase()
+  const numeric = id.replace(/^inc-/i, '')
+  if (/^\d+$/.test(numeric)) {
+    return `INC-${numeric}`
+  }
+  return id.toUpperCase()
 }
 
 export function formatTime(iso: string): string {
@@ -80,6 +84,26 @@ export function formatDateRange(start: string, end: string): string {
   const startFormatted = startDate.toLocaleDateString('en-US', startOpts)
   const endFormatted = endDate.toLocaleDateString('en-US', endOpts)
   return `${startFormatted} – ${endFormatted}`
+}
+
+export function formatDurationFromSeconds(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds) || seconds < 0) {
+    return '—'
+  }
+
+  const totalMinutes = Math.floor(seconds / 60)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+  }
+
+  if (totalMinutes > 0) {
+    return `${totalMinutes}m`
+  }
+
+  return `${Math.round(seconds)}s`
 }
 
 export function getInitials(name: string): string {

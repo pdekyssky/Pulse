@@ -4,6 +4,10 @@ import {
     getIncidentById,
     getIncidentEvents,
     getIncidentComments,
+    createIncidentEvent,
+    createIncidentComment,
+    updateIncidentComment,
+    deleteIncidentComment,
     createIncident,
     updateIncident,
     deleteIncident } from '../controllers/incidentController.js';
@@ -15,7 +19,11 @@ const router = express.Router();
 
 router.get('/', authMiddleware, getIncidents);
 router.get('/:id/events', authMiddleware, getIncidentEvents);
+router.post('/:id/events', authMiddleware, createIncidentEvent);
 router.get('/:id/comments', authMiddleware, getIncidentComments);
+router.post('/:id/comments', authMiddleware, createIncidentComment);
+router.patch('/:id/comments/:commentId', authMiddleware, updateIncidentComment);
+router.delete('/:id/comments/:commentId', authMiddleware, deleteIncidentComment);
 router.get('/:id', authMiddleware, getIncidentById);
 router.post('/', authMiddleware, adminMiddleware, createIncident);
 router.patch('/:id', authMiddleware, adminMiddleware, updateIncident);

@@ -51,6 +51,8 @@ userSchema.methods.ensureNumericId = async function () {
 userSchema.set('toJSON', {
     transform(_doc, ret) {
         delete ret.password;
+        delete ret._id;
+        delete ret.__v;
         return ret;
     }
 });

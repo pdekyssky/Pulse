@@ -5,6 +5,7 @@ import type {
   ApiIncidentCommentUpdate,
   ApiIncidentCreate,
   ApiIncidentEvent,
+  ApiIncidentEventCreate,
   ApiIncidentUpdate,
   IncidentListParams,
   PaginatedIncidents,
@@ -79,6 +80,16 @@ export function updateIncident(id: number, data: ApiIncidentUpdate): Promise<Api
 export function deleteIncident(id: number): Promise<void> {
   return apiRequest<void>(`/incidents/${id}`, {
     method: 'DELETE',
+  })
+}
+
+export function createIncidentEvent(
+  incidentId: number,
+  data: ApiIncidentEventCreate,
+): Promise<ApiIncidentEvent> {
+  return apiRequest<ApiIncidentEvent>(`/incidents/${incidentId}/events`, {
+    method: 'POST',
+    body: JSON.stringify(data),
   })
 }
 

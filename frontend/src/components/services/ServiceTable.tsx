@@ -1,15 +1,17 @@
 /**
- * Table of services with view and edit actions.
+ * Table of services with view and admin actions.
  */
 
 import { Inbox, SearchX } from 'lucide-react'
 
 import type { Service } from '../../types/service.ts'
+import type { User } from '../../types/user.ts'
 import Card from '../ui/Card.tsx'
 import ServiceRow, { ServiceMobileCard } from './ServiceRow.tsx'
 
 interface ServiceTableProps {
   services: Service[]
+  users?: User[]
   totalCount: number
   onView: (service: Service) => void
   onEdit?: (service: Service) => void
@@ -18,6 +20,7 @@ interface ServiceTableProps {
 
 export default function ServiceTable({
   services,
+  users = [],
   totalCount,
   onView,
   onEdit,
@@ -25,12 +28,13 @@ export default function ServiceTable({
 }: ServiceTableProps) {
   const hasNoServices = totalCount === 0
   const hasNoMatches = !hasNoServices && services.length === 0
+  const getOwner = (service: Service) => users.find((user) => user.id === service.ownerId)
 
   return (
     <Card>
       <div className="border-b border-gray-100 px-5 py-4">
         <h3 className="text-base font-semibold text-gray-900">
-          All Services
+          Services
           <span className="ml-2 text-sm font-normal text-gray-500">({services.length})</span>
         </h3>
       </div>
@@ -44,9 +48,8 @@ export default function ServiceTable({
                   <th className="px-5 py-3 font-medium">Service</th>
                   <th className="py-3 pr-4 font-medium">Status</th>
                   <th className="hidden py-3 pr-4 font-medium md:table-cell">Uptime</th>
-                  <th className="hidden py-3 pr-4 font-medium sm:table-cell">Response Time</th>
-                  <th className="hidden py-3 pr-4 font-medium lg:table-cell">Category</th>
-                  <th className="hidden py-3 pr-4 font-medium xl:table-cell">Last Check</th>
+                  <th className="hidden py-3 pr-4 font-medium lg:table-cell">Owner</th>
+                  <th className="hidden py-3 pr-4 font-medium xl:table-cell">Updated</th>
                   <th className="px-5 py-3 font-medium">
                     <span className="sr-only">Actions</span>
                   </th>
@@ -57,6 +60,7 @@ export default function ServiceTable({
                   <ServiceRow
                     key={service.id}
                     service={service}
+                    owner={getOwner(service)}
                     onView={onView}
                     onEdit={onEdit}
                     onDelete={onDelete}
@@ -71,6 +75,7 @@ export default function ServiceTable({
               <ServiceMobileCard
                 key={service.id}
                 service={service}
+                owner={getOwner(service)}
                 onView={onView}
                 onEdit={onEdit}
                 onDelete={onDelete}
@@ -100,7 +105,7 @@ function EmptyState({
         </div>
         <h4 className="mt-4 text-sm font-semibold text-gray-900">No services yet</h4>
         <p className="mt-1 max-w-sm text-sm text-gray-500">
-          Create your first service to start monitoring infrastructure health.
+          Create a service to attach incidents to it.
         </p>
       </div>
     )

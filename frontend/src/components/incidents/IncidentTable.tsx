@@ -10,6 +10,7 @@ import IncidentRow, { IncidentMobileCard } from './IncidentRow.tsx'
 
 interface IncidentTableProps {
   incidents: Incident[]
+  totalCount: number
   services: Service[]
   users: User[]
   onSelectIncident: (incident: Incident) => void
@@ -18,6 +19,7 @@ interface IncidentTableProps {
 
 export default function IncidentTable({
   incidents,
+  totalCount,
   services,
   users,
   onSelectIncident,
@@ -31,7 +33,7 @@ export default function IncidentTable({
       <div className="border-b border-gray-100 px-5 py-4">
         <h3 className="text-base font-semibold text-gray-900">
           All Incidents
-          <span className="ml-2 text-sm font-normal text-gray-500">({incidents.length})</span>
+          <span className="ml-2 text-sm font-normal text-gray-500">({totalCount})</span>
         </h3>
       </div>
 
@@ -44,7 +46,7 @@ export default function IncidentTable({
                   <th className="px-5 py-3 font-medium">ID</th>
                   <th className="py-3 pr-4 font-medium">Title</th>
                   <th className="py-3 pr-4 font-medium">Status</th>
-                  <th className="py-3 pr-4 font-medium">Priority</th>
+                  <th className="py-3 pr-4 font-medium">Severity</th>
                   <th className="hidden py-3 pr-4 font-medium md:table-cell">Service</th>
                   <th className="hidden py-3 pr-4 font-medium lg:table-cell">Assignee</th>
                   <th className="hidden py-3 pr-4 font-medium sm:table-cell">Started</th>

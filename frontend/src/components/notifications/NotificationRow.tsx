@@ -3,11 +3,12 @@
  */
 
 import { createElement } from 'react'
-import { AlertTriangle, Bell, Check, Link2, Loader2 } from 'lucide-react'
+import { AlertTriangle, Bell, Check, Link2, Loader2, MessageSquare, RefreshCw } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { formatDateTime, formatIncidentId, formatRelativeTime } from '../../lib/format.ts'
+import { getNotificationIncidentPath } from '../../lib/mappers/notification.ts'
 import { cn } from '../../lib/utils.ts'
 import type { Notification } from '../../types/notification.ts'
 import { getNotificationTypeLabel } from '../../types/notification.ts'
@@ -16,34 +17,49 @@ import Card from '../ui/Card.tsx'
 interface NotificationRowProps {
   notification: Notification
   onMarkAsRead?: (notification: Notification) => void
+  onOpen?: (notification: Notification) => void
   isMutating?: boolean
 }
 
 const typeIcons: Record<string, LucideIcon> = {
   incident_assigned: AlertTriangle,
-  alert_linked: Bell,
+  incident_status_changed: RefreshCw,
+  incident_comment: MessageSquare,
+  incident_event: Bell,
+  alert_linked: Link2,
 }
 
 const typeMarkerStyles: Record<string, string> = {
   incident_assigned: 'bg-purple-100 text-purple-600',
+  incident_status_changed: 'bg-blue-100 text-blue-600',
+  incident_comment: 'bg-emerald-100 text-emerald-600',
+  incident_event: 'bg-amber-100 text-amber-600',
   alert_linked: 'bg-orange-100 text-orange-600',
 }
 
 export default function NotificationRow({
   notification,
   onMarkAsRead,
+  onOpen,
   isMutating = false,
 }: NotificationRowProps) {
   const icon = typeIcons[notification.type] ?? Bell
   const markerStyle =
     typeMarkerStyles[notification.type] ?? 'bg-gray-100 text-gray-600'
   const showMarkAsRead = onMarkAsRead !== undefined && !notification.isRead
+  const incidentPath = getNotificationIncidentPath(notification)
+  const isOpenable = onOpen !== undefined
 
   return (
+    <div
+      className={cn(isOpenable && 'cursor-pointer')}
+      onClick={isOpenable ? () => onOpen(notification) : undefined}
+    >
     <Card
       className={cn(
         'p-4 transition-colors',
         !notification.isRead && 'border-pulse-200 bg-pulse-50/40',
+        isOpenable && 'hover:border-pulse-300',
       )}
     >
       <div className="flex gap-4">
@@ -79,7 +95,10 @@ export default function NotificationRow({
             {showMarkAsRead && (
               <button
                 type="button"
-                onClick={() => onMarkAsRead(notification)}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onMarkAsRead(notification)
+                }}
                 disabled={isMutating}
                 aria-label={`Mark "${notification.title}" as read`}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -97,20 +116,30 @@ export default function NotificationRow({
           <h3 className="mt-1 font-semibold text-gray-900">{notification.title}</h3>
           <p className="mt-1 text-sm leading-relaxed text-gray-600">{notification.message}</p>
 
-          {(notification.incidentId || notification.alertId) && (
+          {(incidentPath || notification.alertId) && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {notification.incidentId && (
+              {incidentPath && (
                 <Link
-                  to="/incidents"
+                  to={incidentPath}
+                  onClick={(event) => {
+                    if (!onOpen) {
+                      return
+                    }
+
+                    event.preventDefault()
+                    event.stopPropagation()
+                    onOpen(notification)
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
                 >
                   <Link2 className="size-3" aria-hidden="true" />
-                  {formatIncidentId(notification.incidentId)}
+                  {formatIncidentId(notification.incidentId ?? '')}
                 </Link>
               )}
               {notification.alertId && (
                 <Link
                   to="/alerts"
+                  onClick={(event) => event.stopPropagation()}
                   className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-100"
                 >
                   <Link2 className="size-3" aria-hidden="true" />
@@ -122,5 +151,6 @@ export default function NotificationRow({
         </div>
       </div>
     </Card>
+    </div>
   )
 }

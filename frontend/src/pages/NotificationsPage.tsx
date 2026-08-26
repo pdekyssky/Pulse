@@ -3,6 +3,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import QueryState from '../components/common/QueryState.tsx'
 import NotificationFilters from '../components/notifications/NotificationFilters.tsx'
@@ -16,6 +17,7 @@ import {
   useNotificationsList,
 } from '../hooks/useNotificationsQuery.ts'
 import { ApiError } from '../lib/api/client.ts'
+import { getNotificationIncidentPath } from '../lib/mappers/notification.ts'
 import {
   buildNotificationListParams,
   defaultNotificationFilters,
@@ -32,6 +34,7 @@ function parseNotificationId(id: string): number {
 }
 
 export default function NotificationsPage() {
+  const navigate = useNavigate()
   const [filters, setFilters] = useState<NotificationFiltersState>(defaultNotificationFilters)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(6)
@@ -95,6 +98,38 @@ export default function NotificationsPage() {
     [markNotificationReadMutation],
   )
 
+  const handleOpen = useCallback(
+    async (notification: Notification) => {
+      setActionError(null)
+
+      if (!notification.isRead) {
+        setMutatingNotificationId(notification.id)
+
+        try {
+          await markNotificationReadMutation.mutateAsync(parseNotificationId(notification.id))
+        } catch (mutationError) {
+          const message =
+            mutationError instanceof ApiError
+              ? mutationError.message
+              : mutationError instanceof Error
+                ? mutationError.message
+                : 'Request failed'
+
+          setActionError(message)
+          return
+        } finally {
+          setMutatingNotificationId(null)
+        }
+      }
+
+      const incidentPath = getNotificationIncidentPath(notification)
+      if (incidentPath) {
+        navigate(incidentPath)
+      }
+    },
+    [markNotificationReadMutation, navigate],
+  )
+
   const handleMarkAllAsRead = useCallback(async () => {
     setActionError(null)
 
@@ -123,6 +158,7 @@ export default function NotificationsPage() {
       isLoading={isLoading && notificationData === undefined}
       error={error}
       loadingMessage="Loading notifications..."
+      errorTitle="Unable to load notifications"
     >
       <div className="space-y-6">
         <NotificationsHeader
@@ -143,6 +179,7 @@ export default function NotificationsPage() {
           totalCount={notificationData?.total ?? 0}
           readFilter={filters.readStatus}
           onMarkAsRead={handleMarkAsRead}
+          onOpen={handleOpen}
           mutatingNotificationId={mutatingNotificationId}
         />
         <NotificationPagination

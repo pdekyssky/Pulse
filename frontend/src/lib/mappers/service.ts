@@ -9,20 +9,13 @@ import type {
 
 export { mapApiUserToTeamUser } from './user.ts'
 
-const STATUS_RESPONSE_TIME_MS: Record<ServiceStatus, number> = {
-  operational: 45,
-  degraded: 80,
-  down: 150,
-}
-
 export function mapApiServiceStatus(status: string): ServiceStatus {
   switch (status) {
     case 'operational':
       return 'operational'
     case 'degraded':
       return 'degraded'
-    case 'partial_outage':
-    case 'major_outage':
+    case 'down':
       return 'down'
     default:
       return 'degraded'
@@ -30,23 +23,15 @@ export function mapApiServiceStatus(status: string): ServiceStatus {
 }
 
 export function mapApiServiceToService(api: ApiService): Service {
-  const status = mapApiServiceStatus(api.status)
-
   return {
     id: String(api.id),
     name: api.name,
     description: api.description ?? '',
-    status,
+    status: mapApiServiceStatus(api.status),
     uptime: Number(api.uptime),
-    responseTime: STATUS_RESPONSE_TIME_MS[status],
-    team: '—',
-    category: 'application',
-    environment: 'production',
-    lastCheck: api.updated_at,
-    ownerId: String(api.owner_id),
+    ownerId: api.owner_id != null ? String(api.owner_id) : '',
     createdAt: api.created_at,
-    healthChecks: [],
-    recentMetrics: [],
+    updatedAt: api.updated_at,
   }
 }
 
@@ -62,17 +47,18 @@ function normalizeDescription(description: string): string | null {
   return description.length > 0 ? description : null
 }
 
-/** Map UI form values (plus required uptime) to POST /services body. */
+/** Map UI form values to POST /services body. */
 export function mapServiceFormToCreateBody(form: ServiceCreateFormInput): ApiServiceCreate {
   return {
     name: form.name,
     description: normalizeDescription(form.description),
+    status: form.status,
     owner_id: parseOwnerId(form.ownerId),
     uptime: form.uptime,
   }
 }
 
-/** Map UI form values to PATCH /services/{id} body (partial; uptime only when changed). */
+/** Map UI form values to PATCH /services/{id} body. */
 export function mapServiceFormToUpdateBody(
   form: ServiceUpdateFormInput,
   original?: ServiceUpdateFormInput,
@@ -87,6 +73,9 @@ export function mapServiceFormToUpdateBody(
   }
   if (form.ownerId !== undefined) {
     body.owner_id = parseOwnerId(form.ownerId)
+  }
+  if (form.status !== undefined && form.status !== original?.status) {
+    body.status = form.status
   }
   if (form.uptime !== undefined) {
     const uptimeChanged = original === undefined || form.uptime !== original.uptime
@@ -109,6 +98,7 @@ export function toServiceCreateFormInput(form: ServiceFormInput): ServiceCreateF
     description: form.description,
     ownerId: form.ownerId,
     uptime: form.uptime,
+    status: form.status,
   }
 }
 
@@ -118,6 +108,7 @@ export function toServiceUpdateFormInput(form: ServiceFormInput): ServiceUpdateF
     name: form.name,
     description: form.description,
     ownerId: form.ownerId,
+    status: form.status,
   }
 
   if (form.uptime !== undefined && !Number.isNaN(form.uptime)) {
@@ -127,12 +118,13 @@ export function toServiceUpdateFormInput(form: ServiceFormInput): ServiceUpdateF
   return update
 }
 
-/** Map an existing service to backend-backed update form values (includes uptime from API data). */
+/** Map an existing service to backend-backed update form values. */
 export function serviceToUpdateFormInput(service: Service): ServiceUpdateFormInput {
   return {
     name: service.name,
     description: service.description,
     ownerId: service.ownerId,
     uptime: service.uptime,
+    status: service.status,
   }
 }

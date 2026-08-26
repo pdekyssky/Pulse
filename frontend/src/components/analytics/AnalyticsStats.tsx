@@ -1,34 +1,51 @@
 /**
- * KPI stat cards for analytics overview metrics.
+ * KPI stat cards for analytics incident and resolution metrics.
  */
 
-import { Activity, AlertTriangle, Bell, Clock, Gauge } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, Search } from 'lucide-react'
 
-import type { AnalyticsKpis } from '../../types/analytics.ts'
+import type { AnalyticsOverview } from '../../types/analytics.ts'
+import { formatDurationFromSeconds } from '../../lib/format.ts'
 import StatCard from '../dashboard/StatCard.tsx'
 
 interface AnalyticsStatsProps {
-  kpis: AnalyticsKpis
+  overview: AnalyticsOverview
 }
 
-export default function AnalyticsStats({ kpis }: AnalyticsStatsProps) {
+export default function AnalyticsStats({ overview }: AnalyticsStatsProps) {
+  const resolutionLabel = formatDurationFromSeconds(overview.averageResolutionSeconds)
+  const resolutionSubtext =
+    overview.resolvedSampleSize > 0
+      ? `Based on ${overview.resolvedSampleSize} resolved incident${overview.resolvedSampleSize === 1 ? '' : 's'}`
+      : 'No resolved incidents in this period'
+
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      <StatCard label="Overall Uptime" value={kpis.overallUptime} icon={Gauge} variant="operational" />
-      <StatCard
-        label="Avg Response Time"
-        value={kpis.averageResponseTime}
-        icon={Clock}
-        variant="default"
-      />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard
         label="Total Incidents"
-        value={kpis.totalIncidents}
+        value={overview.incidents.total}
         icon={AlertTriangle}
         variant="incidents"
       />
-      <StatCard label="MTTR" value={kpis.mttr} icon={Activity} variant="degraded" />
-      <StatCard label="Alert Volume" value={kpis.alertVolume} icon={Bell} variant="down" />
+      <StatCard
+        label="Open"
+        value={overview.incidents.open}
+        icon={Search}
+        variant="degraded"
+      />
+      <StatCard
+        label="Resolved"
+        value={overview.incidents.resolved}
+        icon={CheckCircle2}
+        variant="operational"
+      />
+      <StatCard
+        label="Avg Resolution Time"
+        value={resolutionLabel}
+        subtext={resolutionSubtext}
+        icon={Clock}
+        variant="default"
+      />
     </div>
   )
 }

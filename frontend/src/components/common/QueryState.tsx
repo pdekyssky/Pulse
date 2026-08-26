@@ -8,6 +8,7 @@ interface QueryStateProps {
   isLoading: boolean
   error: Error | null
   loadingMessage?: string
+  errorTitle?: string
   children: ReactNode
 }
 
@@ -15,6 +16,7 @@ export default function QueryState({
   isLoading,
   error,
   loadingMessage = 'Loading...',
+  errorTitle = 'Unable to load data',
   children,
 }: QueryStateProps) {
   if (isLoading) {
@@ -28,7 +30,7 @@ export default function QueryState({
   if (error) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-        <h3 className="text-sm font-semibold text-red-800">Unable to load data</h3>
+        <h3 className="text-sm font-semibold text-red-800">{errorTitle}</h3>
         <p className="mt-1 text-sm text-red-700">{error.message}</p>
       </div>
     )

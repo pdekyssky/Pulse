@@ -1,5 +1,5 @@
 /**
- * Analytics page header with date range selector.
+ * Analytics page header with date range selector and JSON export.
  */
 
 import { Calendar, Download } from 'lucide-react'
@@ -9,6 +9,7 @@ import type { AnalyticsDateRange } from '../../types/analytics.ts'
 interface AnalyticsHeaderProps {
   dateRange: AnalyticsDateRange
   onDateRangeChange: (range: AnalyticsDateRange) => void
+  onExport?: () => void
 }
 
 const dateRangeLabels: Record<AnalyticsDateRange, string> = {
@@ -20,13 +21,14 @@ const dateRangeLabels: Record<AnalyticsDateRange, string> = {
 export default function AnalyticsHeader({
   dateRange,
   onDateRangeChange,
+  onExport,
 }: AnalyticsHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Analytics</h2>
         <p className="mt-1 max-w-2xl text-sm text-gray-500">
-          Analyze service health, incidents, and operational performance.
+          Operational statistics from live incidents and services.
         </p>
       </div>
 
@@ -49,13 +51,16 @@ export default function AnalyticsHeader({
           </select>
         </div>
 
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
-        >
-          <Download className="size-4 text-gray-500" aria-hidden="true" />
-          Export
-        </button>
+        {onExport && (
+          <button
+            type="button"
+            onClick={onExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+          >
+            <Download className="size-4 text-gray-500" aria-hidden="true" />
+            Export JSON
+          </button>
+        )}
       </div>
     </div>
   )

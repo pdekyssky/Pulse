@@ -1,7 +1,10 @@
-import type { ApiReport, PaginatedReports, ReportListParams } from '../../types/api/report.ts'
+import type {
+  IncidentReportListParams,
+  PaginatedIncidentReports,
+} from '../../types/api/report.ts'
 import { apiRequest } from './client.ts'
 
-function buildReportsQuery(params: ReportListParams = {}): string {
+function buildIncidentReportsQuery(params: IncidentReportListParams = {}): string {
   const searchParams = new URLSearchParams()
 
   if (params.page !== undefined) {
@@ -13,13 +16,16 @@ function buildReportsQuery(params: ReportListParams = {}): string {
   if (params.search !== undefined && params.search.length > 0) {
     searchParams.set('search', params.search)
   }
-  if (params.type !== undefined) {
-    searchParams.set('type', params.type)
+  if (params.severity !== undefined) {
+    searchParams.set('severity', params.severity)
   }
   if (params.status !== undefined) {
     searchParams.set('status', params.status)
   }
-  if (params.period !== undefined) {
+  if (params.service_id !== undefined) {
+    searchParams.set('service_id', String(params.service_id))
+  }
+  if (params.period !== undefined && params.period !== 'all') {
     searchParams.set('period', params.period)
   }
 
@@ -27,10 +33,10 @@ function buildReportsQuery(params: ReportListParams = {}): string {
   return query.length > 0 ? `?${query}` : ''
 }
 
-export function fetchReports(params: ReportListParams = {}): Promise<PaginatedReports> {
-  return apiRequest<PaginatedReports>(`/reports${buildReportsQuery(params)}`)
-}
-
-export function fetchReport(id: string): Promise<ApiReport> {
-  return apiRequest<ApiReport>(`/reports/${encodeURIComponent(id)}`)
+export function fetchIncidentReports(
+  params: IncidentReportListParams = {},
+): Promise<PaginatedIncidentReports> {
+  return apiRequest<PaginatedIncidentReports>(
+    `/reports/incidents${buildIncidentReportsQuery(params)}`,
+  )
 }

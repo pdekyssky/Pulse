@@ -21,14 +21,12 @@ export default function ServiceStatusTable({ services }: ServiceStatusTableProps
       </div>
 
       <div className="overflow-x-auto px-5">
-        <table className="w-full min-w-[540px]">
+        <table className="w-full min-w-[420px]">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
               <th className="py-3 pr-4 font-medium">Service</th>
               <th className="py-3 pr-4 font-medium">Status</th>
-              <th className="py-3 pr-4 font-medium">Uptime</th>
-              <th className="py-3 pr-4 font-medium">Response Time</th>
-              <th className="py-3 font-medium">Trend</th>
+              <th className="py-3 font-medium">Uptime</th>
             </tr>
           </thead>
           <tbody>

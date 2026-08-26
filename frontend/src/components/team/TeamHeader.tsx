@@ -1,32 +1,34 @@
 /**
- * Team page header with optional add-member action.
+ * Users page header with admin add-user action.
  */
 
 import { Plus } from 'lucide-react'
 
 interface TeamHeaderProps {
   readOnly?: boolean
-  onAddClick?: () => void
+  onCreateClick?: () => void
 }
 
-export default function TeamHeader({ readOnly = false, onAddClick }: TeamHeaderProps) {
+export default function TeamHeader({ readOnly = false, onCreateClick }: TeamHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Team</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Users</h2>
         <p className="mt-1 max-w-2xl text-sm text-gray-500">
-          Manage team members, roles, and access across your organization.
+          {readOnly
+            ? 'View organization members, roles, and account status.'
+            : 'Manage organization members, roles, and account status.'}
         </p>
       </div>
 
-      {!readOnly && onAddClick && (
+      {onCreateClick && (
         <button
           type="button"
-          onClick={onAddClick}
+          onClick={onCreateClick}
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-pulse-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pulse-700"
         >
           <Plus className="size-4" aria-hidden="true" />
-          Add Member
+          Add User
         </button>
       )}
     </div>

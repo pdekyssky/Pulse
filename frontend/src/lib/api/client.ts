@@ -38,11 +38,24 @@ export async function apiRequest<T>(
     headers.set('Content-Type', 'application/json')
   }
 
-  const response = await fetch(getApiUrl(path), {
-    ...options,
-    headers,
-    credentials: 'include',
-  })
+  const url = getApiUrl(path)
+  const method = (options.method ?? 'GET').toUpperCase()
+  let response: Response
+
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    })
+  } catch (error) {
+    const reason =
+      error instanceof Error && error.message
+        ? error.message
+        : 'Network request failed'
+
+    throw new ApiError(0, `${method} ${url} failed: ${reason}`)
+  }
 
   if (!response.ok) {
     let detail = response.statusText

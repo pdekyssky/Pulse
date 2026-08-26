@@ -25,7 +25,7 @@ export default function IncidentTrendChart({ data }: IncidentTrendChartProps) {
   return (
     <ChartCard
       title="Incident Trends"
-      description="Daily incident volume by severity and resolution status."
+      description="Incidents created each day, including critical volume and resolutions."
     >
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">

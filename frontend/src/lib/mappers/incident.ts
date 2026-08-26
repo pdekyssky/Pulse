@@ -5,6 +5,7 @@ import type {
   ApiIncidentCommentUpdate,
   ApiIncidentCreate,
   ApiIncidentEvent,
+  ApiIncidentEventCreate,
   ApiIncidentSeverity,
   ApiIncidentUpdate,
 } from '../../types/api/incident.ts'
@@ -17,9 +18,6 @@ import type {
   IncidentPriority,
 } from '../../types/incident.ts'
 import { mapRecentIncidentToIncident } from './dashboard.ts'
-
-/** Backend-required create fields not collected by `CreateIncidentInput`. */
-export type CreateIncidentRequiredApiFields = Pick<ApiIncidentCreate, 'status' | 'started_at'>
 
 function parseServiceId(serviceId: string): number {
   const service_id = Number.parseInt(serviceId, 10)
@@ -48,32 +46,25 @@ export function mapUiIncidentPriorityToApiSeverity(
   return priority
 }
 
-/** Map create form values to POST /incidents body (excludes assignee; no assigned_to_id). */
-export function mapCreateIncidentInputToApi(
-  input: CreateIncidentInput,
-  required: CreateIncidentRequiredApiFields,
-): ApiIncidentCreate {
+/** Map create form values to POST /incidents body. */
+export function mapCreateIncidentInputToApi(input: CreateIncidentInput): ApiIncidentCreate {
   return {
     title: input.title,
     description: normalizeDescription(input.description),
-    status: required.status,
     severity: mapUiIncidentPriorityToApiSeverity(input.priority),
     service_id: parseServiceId(input.affectedServiceId),
-    started_at: required.started_at,
   }
 }
 
 /** Map resolve action to PATCH /incidents/{id} body. */
-export function mapResolveIncidentToUpdate(resolvedAt: string): ApiIncidentUpdate {
+export function mapResolveIncidentToUpdate(): ApiIncidentUpdate {
   return {
     status: 'resolved',
-    resolved_at: resolvedAt,
   }
 }
 
 /**
- * Map UI assignee ID to optional PATCH /incidents/{id} body after create.
- * Returns null when assigneeId is undefined (skip assignment PATCH).
+ * Map UI assignee ID to optional PATCH /incidents/{id} body.
  * Returns { assigned_to_id: null } to clear assignment when assigneeId is null/blank.
  */
 export function mapAssigneePatch(
@@ -100,7 +91,18 @@ export function mapIncidentCommentFormToUpdateBody(content: string): ApiIncident
   return { content }
 }
 
+export function mapIncidentEventFormToCreateBody(
+  eventType: string,
+  message: string,
+): ApiIncidentEventCreate {
+  return {
+    event_type: eventType,
+    message,
+  }
+}
+
 const BACKEND_EVENT_TYPE_MAP: Record<string, IncidentEventType> = {
+  note: 'note',
   status_change: 'status_change',
   assignment: 'assignment',
   resolution: 'resolution',
@@ -109,11 +111,12 @@ const BACKEND_EVENT_TYPE_MAP: Record<string, IncidentEventType> = {
   comment_deleted: 'comment',
   created: 'status_change',
   severity_change: 'escalation',
+  escalation: 'escalation',
   alert_linked: 'status_change',
   alert_unlinked: 'status_change',
 }
 
-const DEFAULT_EVENT_TYPE: IncidentEventType = 'status_change'
+const DEFAULT_EVENT_TYPE: IncidentEventType = 'note'
 
 function mapBackendEventType(eventType: string): IncidentEventType {
   return BACKEND_EVENT_TYPE_MAP[eventType] ?? DEFAULT_EVENT_TYPE
@@ -128,8 +131,20 @@ export function mapApiEventToIncidentEvent(api: ApiIncidentEvent): IncidentEvent
     id: String(api.id),
     timestamp: api.created_at,
     type: mapBackendEventType(api.event_type),
+    sourceType: api.event_type,
     message: api.message,
     userId: String(api.author_id),
+  }
+}
+
+/** Map edit form values to PATCH /incidents/{id} body. */
+export function mapEditIncidentToUpdate(input: {
+  title: string
+  description: string
+}): ApiIncidentUpdate {
+  return {
+    title: input.title,
+    description: normalizeDescription(input.description),
   }
 }
 
@@ -137,6 +152,7 @@ export function mapApiCommentToIncidentComment(api: ApiIncidentComment): Inciden
   return {
     id: String(api.id),
     timestamp: api.created_at,
+    updatedAt: api.updated_at,
     userId: String(api.author_id),
     content: api.content,
   }

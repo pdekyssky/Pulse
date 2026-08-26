@@ -2,7 +2,8 @@
  * Single incident row with status, priority, and resolve action.
  */
 
-import { Eye, MoreHorizontal, Pencil, CheckCircle2 } from 'lucide-react'
+import { Eye, CheckCircle2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import type { Incident } from '../../types/incident.ts'
 import type { Service } from '../../types/service.ts'
@@ -15,6 +16,7 @@ import {
   formatTime,
   getInitials,
 } from '../../lib/format.ts'
+import { parseServiceNumericId } from '../../lib/service-utils.ts'
 import {
   incidentPriorityLabels,
   incidentStatusLabels,
@@ -58,7 +60,21 @@ export default function IncidentRow({
         />
       </td>
       <td className="hidden py-4 pr-4 text-sm text-gray-600 md:table-cell">
-        {primaryService?.name ?? '—'}
+        {primaryService ? (
+          <Link
+            to={
+              parseServiceNumericId(primaryService.id)
+                ? `/services/${parseServiceNumericId(primaryService.id)}`
+                : '/services'
+            }
+            className="text-pulse-600 hover:text-pulse-700"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {primaryService.name}
+          </Link>
+        ) : (
+          '—'
+        )}
       </td>
       <td className="hidden py-4 pr-4 lg:table-cell">
         {assignee ? (
@@ -69,7 +85,7 @@ export default function IncidentRow({
             <span className="text-sm text-gray-700">{assignee.name}</span>
           </div>
         ) : (
-          <span className="text-sm text-gray-400">—</span>
+          <span className="text-sm text-gray-400">Unassigned</span>
         )}
       </td>
       <td className="hidden py-4 pr-4 text-sm text-gray-600 sm:table-cell">
@@ -106,33 +122,6 @@ export default function IncidentRow({
           >
             <Eye className="size-4" aria-hidden="true" />
           </button>
-          {onResolve && (
-            <>
-              <button
-                type="button"
-                title="Edit"
-                aria-label={`Edit ${formatIncidentId(incident.id)}`}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onSelect(incident)
-                }}
-              >
-                <Pencil className="size-4" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label={`More actions for ${formatIncidentId(incident.id)}`}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onSelect(incident)
-                }}
-              >
-                <MoreHorizontal className="size-4" aria-hidden="true" />
-              </button>
-            </>
-          )}
         </div>
       </td>
     </tr>
@@ -164,7 +153,7 @@ export function IncidentMobileCard({
       <p className="mt-2 font-medium text-gray-900">{incident.title}</p>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-500">
         <span>Service: {primaryService?.name ?? '—'}</span>
-        <span>Assignee: {assignee?.name ?? '—'}</span>
+        <span>Assignee: {assignee?.name ?? 'Unassigned'}</span>
         <span>Started: {formatTime(incident.startedAt)}</span>
         <span>Duration: {incident.duration}</span>
         <span className="col-span-2">{formatRelativeTime(incident.startedAt)} · {formatDateTime(incident.startedAt)}</span>

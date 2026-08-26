@@ -1,5 +1,5 @@
 /**
- * Analytics dashboard with charts driven by API-backed aggregated data.
+ * Analytics dashboard driven by live MongoDB aggregates.
  */
 
 import { useMemo, useState } from 'react'
@@ -7,24 +7,18 @@ import { useMemo, useState } from 'react'
 import AnalyticsFiltersBar from '../components/analytics/AnalyticsFilters.tsx'
 import AnalyticsHeader from '../components/analytics/AnalyticsHeader.tsx'
 import AnalyticsStats from '../components/analytics/AnalyticsStats.tsx'
+import DistributionList from '../components/analytics/DistributionList.tsx'
 import IncidentTrendChart from '../components/analytics/IncidentTrendChart.tsx'
-import ResponseTimeChart from '../components/analytics/ResponseTimeChart.tsx'
 import ServicePerformance from '../components/analytics/ServicePerformance.tsx'
-import UptimeChart from '../components/analytics/UptimeChart.tsx'
 import QueryState from '../components/common/QueryState.tsx'
+import StatCard from '../components/dashboard/StatCard.tsx'
 import { useAnalyticsOverview } from '../hooks/useAnalyticsQuery.ts'
 import { useServices } from '../hooks/useServices.ts'
-import { defaultAnalyticsFilters, shouldShowChart } from '../lib/analytics-stats.ts'
+import { defaultAnalyticsFilters, downloadAnalyticsJson } from '../lib/analytics-stats.ts'
 import { buildAnalyticsOverviewParams } from '../lib/mappers/analytics.ts'
-import type { AnalyticsFilters, AnalyticsKpis } from '../types/analytics.ts'
-
-const emptyKpis: AnalyticsKpis = {
-  overallUptime: '0.00%',
-  averageResponseTime: '0 ms',
-  totalIncidents: 0,
-  mttr: '0m',
-  alertVolume: 0,
-}
+import { incidentPriorityLabels, incidentStatusLabels } from '../types/incident.ts'
+import type { AnalyticsFilters } from '../types/analytics.ts'
+import { AlertTriangle, Server, ShieldAlert } from 'lucide-react'
 
 export default function AnalyticsPage() {
   const [filters, setFilters] = useState<AnalyticsFilters>(defaultAnalyticsFilters)
@@ -35,7 +29,7 @@ export default function AnalyticsPage() {
   )
 
   const {
-    data: analyticsData,
+    data: overview,
     isLoading: isAnalyticsLoading,
     error: analyticsError,
   } = useAnalyticsOverview(queryParams)
@@ -47,33 +41,99 @@ export default function AnalyticsPage() {
 
   const isLoading =
     (isServicesLoading && services.length === 0) ||
-    (isAnalyticsLoading && analyticsData === undefined)
+    (isAnalyticsLoading && overview === undefined)
   const error = analyticsError ?? servicesError
 
-  const kpis = analyticsData?.kpis ?? emptyKpis
-  const uptimeData = analyticsData?.uptimeSeries ?? []
-  const incidentData = analyticsData?.incidentTrend ?? []
-  const responseTimeData = analyticsData?.responseTimeSeries ?? []
-  const performanceRows = analyticsData?.servicePerformance ?? []
+  const severityItems = overview
+    ? Object.entries(overview.incidents.bySeverity).map(([key, count]) => ({
+        key,
+        label: incidentPriorityLabels[key as keyof typeof incidentPriorityLabels] ?? key,
+        count,
+      }))
+    : []
+
+  const statusItems = overview
+    ? Object.entries(overview.incidents.byStatus).map(([key, count]) => ({
+        key,
+        label: incidentStatusLabels[key as keyof typeof incidentStatusLabels] ?? key,
+        count,
+      }))
+    : []
+
+  const serviceItems = overview
+    ? overview.incidents.byService.map((row) => ({
+        key: String(row.serviceId ?? row.serviceName),
+        label: row.serviceName,
+        count: row.count,
+      }))
+    : []
 
   return (
-    <QueryState isLoading={isLoading} error={error} loadingMessage="Loading analytics...">
+    <QueryState
+      isLoading={isLoading}
+      error={error}
+      loadingMessage="Loading analytics..."
+      errorTitle="Unable to load analytics"
+    >
       <div className="space-y-6">
-        <AnalyticsHeader dateRange={filters.dateRange} onDateRangeChange={handleDateRangeChange} />
-        <AnalyticsStats kpis={kpis} />
+        <AnalyticsHeader
+          dateRange={filters.dateRange}
+          onDateRangeChange={handleDateRangeChange}
+          onExport={overview ? () => downloadAnalyticsJson(overview) : undefined}
+        />
+        {overview && <AnalyticsStats overview={overview} />}
         <AnalyticsFiltersBar filters={filters} services={services} onChange={setFilters} />
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {shouldShowChart(filters.metric, 'uptime') && <UptimeChart data={uptimeData} />}
-          {shouldShowChart(filters.metric, 'incidents') && (
-            <IncidentTrendChart data={incidentData} />
-          )}
-          {shouldShowChart(filters.metric, 'responseTime') && (
-            <ResponseTimeChart data={responseTimeData} />
-          )}
-        </div>
+        {overview && (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <StatCard
+                label="Operational"
+                value={overview.services.operational}
+                icon={Server}
+                variant="operational"
+              />
+              <StatCard
+                label="Degraded"
+                value={overview.services.degraded}
+                icon={AlertTriangle}
+                variant="degraded"
+              />
+              <StatCard
+                label="Down"
+                value={overview.services.down}
+                icon={ShieldAlert}
+                variant="down"
+              />
+            </div>
 
-        <ServicePerformance rows={performanceRows} services={services} />
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <DistributionList
+                title="Severity Distribution"
+                description="Incidents created in the selected period."
+                items={severityItems}
+                emptyMessage="No incidents in this period."
+              />
+              <DistributionList
+                title="Status Distribution"
+                description="Current status of incidents created in the selected period."
+                items={statusItems}
+                emptyMessage="No incidents in this period."
+              />
+            </div>
+
+            <IncidentTrendChart data={overview.incidentTrend} />
+
+            <DistributionList
+              title="Incidents by Service"
+              description="Incident volume grouped by affected service."
+              items={serviceItems}
+              emptyMessage="No incidents in this period."
+            />
+
+            <ServicePerformance rows={overview.services.items} />
+          </>
+        )}
       </div>
     </QueryState>
   )

@@ -1,28 +1,28 @@
 /**
- * Single service row with status badge and uptime.
+ * Single service row with status, uptime, and owner.
  */
 
 import { Eye, Pencil, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import type { Service } from '../../types/service.ts'
+import type { User } from '../../types/user.ts'
 import ServiceIcon from './ServiceIcon.tsx'
 import ServiceStatusBadge from './ServiceStatusBadge.tsx'
-import {
-  formatDateTime,
-  formatRelativeTime,
-  formatResponseTime,
-  formatUptime,
-} from '../../lib/format.ts'
-import { serviceCategoryLabels } from '../../types/service.ts'
+import { formatDateTime, formatRelativeTime, formatUptime } from '../../lib/format.ts'
+import { parseServiceNumericId } from '../../lib/service-utils.ts'
 
 interface ServiceRowProps {
   service: Service
+  owner?: User
   onView: (service: Service) => void
   onEdit?: (service: Service) => void
   onDelete?: (service: Service) => void
 }
 
-export default function ServiceRow({ service, onView, onEdit, onDelete }: ServiceRowProps) {
+export default function ServiceRow({ service, owner, onView, onEdit, onDelete }: ServiceRowProps) {
+  const numericId = parseServiceNumericId(service.id)
+
   return (
     <tr className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50">
       <td className="px-5 py-4 pr-4">
@@ -31,8 +31,26 @@ export default function ServiceRow({ service, onView, onEdit, onDelete }: Servic
             <ServiceIcon serviceId={service.id} className="size-4" />
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-gray-900">{service.name}</p>
-            <p className="truncate text-xs text-gray-500 md:hidden">{service.team}</p>
+            {numericId ? (
+              <Link
+                to={`/services/${numericId}`}
+                className="font-medium text-gray-900 hover:text-pulse-700"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {service.name}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="font-medium text-gray-900"
+                onClick={() => onView(service)}
+              >
+                {service.name}
+              </button>
+            )}
+            {service.description ? (
+              <p className="truncate text-xs text-gray-500">{service.description}</p>
+            ) : null}
           </div>
         </div>
       </td>
@@ -42,15 +60,12 @@ export default function ServiceRow({ service, onView, onEdit, onDelete }: Servic
       <td className="hidden py-4 pr-4 text-sm text-gray-600 md:table-cell">
         {formatUptime(service.uptime)}
       </td>
-      <td className="hidden py-4 pr-4 text-sm text-gray-600 sm:table-cell">
-        {formatResponseTime(service.responseTime)}
-      </td>
       <td className="hidden py-4 pr-4 text-sm text-gray-600 lg:table-cell">
-        {serviceCategoryLabels[service.category]}
+        {owner?.name ?? (service.ownerId ? `User #${service.ownerId}` : '—')}
       </td>
       <td className="hidden py-4 pr-4 text-sm text-gray-600 xl:table-cell">
-        <span title={formatDateTime(service.lastCheck)}>
-          {formatRelativeTime(service.lastCheck)}
+        <span title={formatDateTime(service.updatedAt ?? service.createdAt)}>
+          {formatRelativeTime(service.updatedAt ?? service.createdAt)}
         </span>
       </td>
       <td className="px-5 py-4 text-right">
@@ -89,7 +104,7 @@ export default function ServiceRow({ service, onView, onEdit, onDelete }: Servic
   )
 }
 
-export function ServiceMobileCard({ service, onView, onEdit, onDelete }: ServiceRowProps) {
+export function ServiceMobileCard({ service, owner, onView, onEdit, onDelete }: ServiceRowProps) {
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -99,16 +114,14 @@ export function ServiceMobileCard({ service, onView, onEdit, onDelete }: Service
           </div>
           <div>
             <p className="font-medium text-gray-900">{service.name}</p>
-            <p className="text-xs text-gray-500">{serviceCategoryLabels[service.category]}</p>
+            <p className="text-xs text-gray-500">{owner?.name ?? 'No owner'}</p>
           </div>
         </div>
         <ServiceStatusBadge status={service.status} />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-500">
         <span>Uptime: {formatUptime(service.uptime)}</span>
-        <span>Response: {formatResponseTime(service.responseTime)}</span>
-        <span>Team: {service.team}</span>
-        <span>Last check: {formatRelativeTime(service.lastCheck)}</span>
+        <span>Updated: {formatRelativeTime(service.updatedAt ?? service.createdAt)}</span>
       </div>
       <div className="mt-3 flex gap-2">
         <button
