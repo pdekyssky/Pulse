@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Incident from '../models/Incidents.js';
-import Notification from '../models/Notification.js';
+import { deleteUserNotifications } from './notificationController.js';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 6;
@@ -476,7 +476,7 @@ const deleteUser = async (req, res) => {
             { assignedTo: user._id },
             { $set: { assignedTo: null } }
         );
-        await Notification.deleteMany({ user: user._id });
+        await deleteUserNotifications(user.id);
         await user.deleteOne();
 
         res.status(200).json({

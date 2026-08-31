@@ -48,6 +48,7 @@ userSchema.methods.ensureNumericId = async function () {
     return this;
 };
 
+//Hide the password and other sensitive data from the response
 userSchema.set('toJSON', {
     transform(_doc, ret) {
         delete ret.password;

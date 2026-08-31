@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Service, { SERVICE_STATUSES } from '../models/Service.js';
 import User from '../models/User.js';
 
+//
 function toPublicService(service) {
     const ownerId = service.owner && typeof service.owner === 'object'
         ? service.owner.id
@@ -19,6 +20,7 @@ function toPublicService(service) {
     };
 }
 
+// Parse numeric ID from string URL parameter
 function parseNumericId(value) {
     if (typeof value !== 'string' || !/^\d+$/.test(value)) {
         return null;
