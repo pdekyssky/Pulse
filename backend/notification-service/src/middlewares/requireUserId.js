@@ -16,11 +16,18 @@ function parsePositiveInt(value) {
 }
 
 const requireUserId = (req, res, next) => {
-    const userId = parsePositiveInt(req.headers['x-user-id']);
+    const raw = req.headers['x-user-id'];
 
-    if (!userId) {
+    if (raw === undefined || raw === null || String(raw).trim() === '') {
         return res.status(400).json({
             message: 'X-User-Id header is required'
+        });
+    }
+
+    const userId = parsePositiveInt(raw);
+    if (!userId) {
+        return res.status(400).json({
+            message: 'Invalid X-User-Id'
         });
     }
 

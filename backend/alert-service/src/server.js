@@ -3,7 +3,8 @@ import crypto from 'node:crypto';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import requireInternalAuth from './middlewares/requireInternalAuth.js';
-import notificationRoutes from './routes/notificationRoutes.js';
+import alertRoutes from './routes/alertRoutes.js';
+import opsRoutes from './routes/opsRoutes.js';
 
 dotenv.config();
 
@@ -33,12 +34,13 @@ app.use((req, res, next) => {
 });
 
 app.use('/internal', requireInternalAuth);
-app.use('/internal/notifications', notificationRoutes);
+app.use('/internal/alerts', alertRoutes);
+app.use('/internal/ops', opsRoutes);
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5004;
 
 connectDB();
 
 app.listen(PORT, () => {
-    console.log(`Notification service is running on port ${PORT}`);
+    console.log(`Alert service is running on port ${PORT}`);
 });

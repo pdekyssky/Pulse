@@ -3,7 +3,13 @@ import crypto from 'node:crypto';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import requireInternalAuth from './middlewares/requireInternalAuth.js';
-import notificationRoutes from './routes/notificationRoutes.js';
+import incidentRoutes from './routes/incidentRoutes.js';
+import serviceRoutes from './routes/serviceRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
+import timelineRoutes from './routes/timelineRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
+import internalOpsRoutes from './routes/internalOpsRoutes.js';
 
 dotenv.config();
 
@@ -33,12 +39,18 @@ app.use((req, res, next) => {
 });
 
 app.use('/internal', requireInternalAuth);
-app.use('/internal/notifications', notificationRoutes);
+app.use('/internal', internalOpsRoutes);
+app.use('/internal/incidents', incidentRoutes);
+app.use('/internal/services', serviceRoutes);
+app.use('/internal/dashboard', dashboardRoutes);
+app.use('/internal/timeline', timelineRoutes);
+app.use('/internal/analytics', analyticsRoutes);
+app.use('/internal/reports', reportRoutes);
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5003;
 
 connectDB();
 
 app.listen(PORT, () => {
-    console.log(`Notification service is running on port ${PORT}`);
+    console.log(`Incident service is running on port ${PORT}`);
 });

@@ -3,12 +3,18 @@ import crypto from 'node:crypto';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import requireInternalAuth from './middlewares/requireInternalAuth.js';
-import notificationRoutes from './routes/notificationRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 dotenv.config();
 
 if (!process.env.MONGO_URI || !String(process.env.MONGO_URI).trim()) {
     console.error('MONGO_URI is required');
+    process.exit(1);
+}
+
+if (!process.env.JWT_SECRET || !String(process.env.JWT_SECRET).trim()) {
+    console.error('JWT_SECRET is required');
     process.exit(1);
 }
 
@@ -33,12 +39,13 @@ app.use((req, res, next) => {
 });
 
 app.use('/internal', requireInternalAuth);
-app.use('/internal/notifications', notificationRoutes);
+app.use('/internal/auth', authRoutes);
+app.use('/internal/users', userRoutes);
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5002;
 
 connectDB();
 
 app.listen(PORT, () => {
-    console.log(`Notification service is running on port ${PORT}`);
+    console.log(`User service is running on port ${PORT}`);
 });
